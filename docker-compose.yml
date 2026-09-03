@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: adaptiq_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: adaptiq_wms
+      POSTGRES_USER: adaptiq_user
+      POSTGRES_PASSWORD: adaptiq_secure_password_2026
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - adaptiq_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adaptiq_user -d adaptiq_wms"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: .
+    container_name: adaptiq_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://adaptiq_user:adaptiq_secure_password_2026@db:5432/adaptiq_wms
+      JWT_SECRET: adaptiq_production_secret_key_change_me_when_live_2026
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./static:/app/static
+      - ./templates:/app/templates
+    networks:
+      - adaptiq_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: adaptiq_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/app/static:ro
+    depends_on:
+      - web
+    networks:
+      - adaptiq_network
+
+volumes:
+  postgres_data:
+
+networks:
+  adaptiq_network:
+    driver: bridge

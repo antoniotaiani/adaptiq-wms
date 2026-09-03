@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdaptiQ WMS - Portale Mandanti</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --primary-blue: #0284c7;
+            --primary-blue-dark: #0369a1;
+            --accent-amber: #f59e0b;
+            --accent-amber-hover: #d97706;
+            --surface-bg: #f8fafc;
+            --text-dark: #0f172a;
+        }
+
+        body {
+            background-color: var(--surface-bg);
+            color: var(--text-dark);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+        }
+
+        a:focus-visible, button:focus-visible, input:focus-visible {
+            outline: 3px solid var(--accent-amber) !important;
+            outline-offset: 2px !important;
+        }
+
+        .header-brand {
+            background: #ffffff;
+            border-bottom: 3px solid var(--accent-amber);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .portal-logo-center {
+            max-height: 75px;
+            max-width: 240px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .brand-text-fallback {
+            font-size: 1.45rem;
+            font-weight: 900;
+            color: var(--primary-blue);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .brand-subtext {
+            color: #b45309;
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .card-custom {
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+        }
+
+        .btn-brand-primary {
+            background-color: var(--primary-blue);
+            color: #ffffff;
+            font-weight: 700;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+        }
+        .btn-brand-primary:hover { background-color: var(--primary-blue-dark); color: #ffffff; }
+
+        .btn-brand-amber {
+            background-color: var(--accent-amber);
+            color: #000000;
+            font-weight: 700;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+        }
+        .btn-brand-amber:hover { background-color: var(--accent-amber-hover); color: #000000; }
+
+        .stat-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+            border-left: 5px solid var(--primary-blue);
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        @media print {
+            body { background: white; margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            #printArea { display: block !important; }
+            @page { size: A4 portrait; margin: 12mm; }
+            table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+            th { background-color: #0284c7 !important; color: white !important; -webkit-print-color-adjust: exact; padding: 6px; }
+            td { padding: 6px; border-bottom: 1px solid #cbd5e1; }
+        }
+        #printArea { display: none; }
+    </style>
+</head>
+<body>
+
+<header class="header-brand py-2 px-4 mb-4 no-print">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <div>
+                <span class="brand-text-fallback">⚡ AdaptiQ WMS</span>
+                <span class="brand-subtext" data-i18n="portal_subtext">Portale Riservato Mandanti</span>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <!-- DROPDOWN MULTILINGUA -->
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle fw-bold d-flex align-items-center gap-1 shadow-sm" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-translate"></i>
+                    <span id="currentLangLabel">IT</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="langDropdown">
+                    <li><a class="dropdown-item fw-semibold" id="btnLangIt" href="javascript:void(0)" onclick="setLanguage('it')">🇮🇹 Italiano</a></li>
+                    <li><a class="dropdown-item fw-semibold" id="btnLangEn" href="javascript:void(0)" onclick="setLanguage('en')">🇬🇧 English</a></li>
+                </ul>
+            </div>
+
+            <div id="headerUserBox" class="d-none">
+                <button class="btn btn-outline-danger btn-sm fw-bold px-3 py-2" onclick="performLogout()" data-i18n="btn_disconnect">
+                    <i class="bi bi-box-arrow-right me-1"></i> Disconnetti
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- SEZIONE LOGIN AUTENTICAZIONE -->
+<section id="loginSection" class="container py-4 no-print">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card card-custom p-4 p-md-5">
+                
+                <!-- LOGO CENTRALE DALLA CARTELLA STATIC -->
+                <div class="text-center mb-4">
+                    <img src="/static/logo.png" alt="AdaptiQ Logo" class="portal-logo-center mb-3" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+                    <h3 class="fw-bold text-dark mb-1" data-i18n="login_title">Accesso Riservato Mandanti</h3>
+                    <p class="text-muted small" data-i18n="login_subtitle">Verifica scorte in tempo reale e storico spedizioni certificate</p>
+                </div>
+
+                <form onsubmit="event.preventDefault(); performLogin();">
+                    <div class="mb-3">
+                        <label for="loginCode" class="form-label fw-bold small" data-i18n="lbl_code">Codice Identificativo Mandante</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                            <input type="text" id="loginCode" class="form-control form-control-lg font-monospace text-uppercase" placeholder="Es. MCH-APEX" value="MCH-APEX" autofocus required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="loginPin" class="form-label fw-bold small" data-i18n="lbl_pin">PIN di Accesso</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                            <input type="password" id="loginPin" class="form-control form-control-lg" placeholder="••••" value="1234" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btnLoginSubmit" class="btn btn-brand-primary w-100 py-3 fs-5 shadow" data-i18n="btn_login">
+                        <i class="bi bi-unlock me-1"></i> Accedi all'Inventario
+                    </button>
+                </form>
+
+                <div id="loginError" class="alert alert-danger mt-3 d-none fw-semibold text-center small" role="alert"></div>
+
+                <div class="mt-4 p-3 bg-light rounded text-muted small text-center border">
+                    <i class="bi bi-info-circle me-1"></i> <span data-i18n="demo_hint">Account Demo: Codice <b>MCH-APEX</b> | PIN <b>1234</b></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SEZIONE DASHBOARD / INVENTARIO -->
+<section id="dashboardSection" class="container-fluid px-3 px-md-4 no-print d-none">
+    
+    <!-- LOGO CENTRALE IN TESTATA DASHBOARD -->
+    <div class="text-center mb-3">
+        <img src="/static/logo.png" alt="AdaptiQ Logo" class="portal-logo-center" style="max-height: 55px;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-2">
+        <div>
+            <h3 class="fw-bold m-0 text-dark" data-i18n="dash_title">Riepilogo Giacenze & Inventario</h3>
+            <span class="text-muted"><span data-i18n="dash_merchant">Mandante Registrato</span>: <b id="clientCompanyName" class="text-primary fs-5"></b></span>
+        </div>
+        <div>
+            <button class="btn btn-brand-amber fw-bold shadow-sm" onclick="printStockReport()" data-i18n="btn_print_report">
+                <i class="bi bi-printer me-1"></i> Stampa Inventario Ufficiale A4
+            </button>
+        </div>
+    </div>
+
+    <!-- STATISTICHE VELOCI -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card-custom stat-card">
+                <span class="text-muted small fw-bold text-uppercase" data-i18n="stat_skus">Referenze Attive (SKU)</span>
+                <div class="fs-2 fw-bold text-dark mt-1" id="statSkuCount">0</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-custom stat-card" style="border-left-color: #10b981;">
+                <span class="text-muted small fw-bold text-uppercase" data-i18n="stat_total_pcs">Pezzi Totali a Magazzino</span>
+                <div class="fs-2 fw-bold text-success mt-1" id="statTotalPcs">0 pcs</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-custom stat-card" style="border-left-color: var(--accent-amber);">
+                <span class="text-muted small fw-bold text-uppercase" data-i18n="stat_status">Stato Aggiornamento</span>
+                <div class="fs-5 fw-bold text-dark mt-2" id="statLastUpdate" data-i18n="stat_realtime">In tempo reale</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB NAVIGAZIONE -->
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active fw-bold px-4 py-2" data-bs-toggle="tab" data-bs-target="#tab-scorte" onclick="loadStock()" data-i18n="tab_stock">
+                <i class="bi bi-boxes me-1"></i> 1. Situazione Merci & Scorte
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold px-4 py-2" data-bs-toggle="tab" data-bs-target="#tab-ordini" onclick="loadOrders()" data-i18n="tab_dispatches">
+                <i class="bi bi-truck me-1"></i> 2. Spedizioni Evase
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- TAB 1: SCORTE -->
+        <div class="tab-pane fade show active" id="tab-scorte">
+            <div class="card card-custom p-3 mb-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-6 col-lg-5">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                            <input type="text" id="searchStockInput" class="form-control" placeholder="Cerca per SKU, descrizione o ubicazione..." data-i18n-placeholder="search_stock_placeholder" onkeyup="filterStockTable()">
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-7 text-md-end text-muted small" data-i18n="sync_hint">
+                        Visualizzazione dinamica sincronizzata con il database centrale PostgreSQL
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-custom overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th data-i18n="th_sku">SKU Mandante</th>
+                                <th data-i18n="th_barcode">Codice Barcode</th>
+                                <th data-i18n="th_desc">Descrizione Merce</th>
+                                <th data-i18n="th_bin">Ubicazione Scaffale</th>
+                                <th class="text-center" data-i18n="th_qty">Giacenza Reale</th>
+                                <th class="text-center" data-i18n="th_status">Stato Scorta</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: STORICO SPEDIZIONI -->
+        <div class="tab-pane fade" id="tab-ordini">
+            <div class="card card-custom overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th data-i18n="th_doc_number">Numero Documento</th>
+                                <th data-i18n="th_date">Data e Ora Evasione</th>
+                                <th class="text-center" data-i18n="th_total_units">Totale Pezzi Spediti</th>
+                                <th class="text-center" data-i18n="th_status">Stato</th>
+                                <th class="text-center" data-i18n="th_doc">Documento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- MODALE DETTAGLIO SPEDIZIONE -->
+<div class="modal fade no-print" id="ddtDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content card-custom">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold" id="modalDdtTitle" data-i18n="modal_detail_title">Dettaglio Spedizione</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th data-i18n="th_sku">SKU</th>
+                                <th data-i18n="th_barcode">Barcode</th>
+                                <th data-i18n="th_desc">Descrizione</th>
+                                <th data-i18n="th_bin">Ubicaz.</th>
+                                <th class="text-center" data-i18n="th_expected">Richiesti</th>
+                                <th class="text-center" data-i18n="th_picked">Prelevati</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalDdtBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-brand-primary fw-bold" onclick="printModalDdt()" data-i18n="btn_print_cert">
+                    <i class="bi bi-printer me-1"></i> Stampa Certificato Spedizione
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STAMPA INVENTARIO A4 -->
+<div id="printArea">
+    <div style="border-bottom: 2px solid #0284c7; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+            <h2 style="color: #0284c7; margin: 0; font-weight: 900;">⚡ AdaptiQ WMS</h2>
+            <div style="font-size: 8.5pt; color: #b45309; font-weight: bold;" id="prnSubTitle">Soluzioni Adattive per la Logistica e il Fulfillment</div>
+            <h4 style="margin: 4px 0 0 0; color: #0f172a;" id="prnDocTitle">VERBALE UFFICIALE DI INVENTARIO MERCI</h4>
+        </div>
+        <div style="text-align: right; font-size: 8.5pt;">
+            <span id="prnMerchantLbl">Mandante:</span> <b id="prnClientName"></b><br>
+            <span id="prnTimestampLbl">Data Rilevazione:</span> <span id="prnTimestamp"></span>
+        </div>
+    </div>
+    <div id="prnCustomHeader" style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px; margin-bottom: 14px; font-size: 9.5pt;"></div>
+    <table>
+        <thead id="prnTableHead"></thead>
+        <tbody id="prnTableBody"></tbody>
+    </table>
+    <div style="margin-top: 50px; display: flex; justify-content: space-between; font-size: 8.5pt;">
+        <div style="width: 45%; border-top: 1px dashed #64748b; text-align: center; padding-top: 6px;" id="prnSignatureWh">Firma Responsabile Logistica Magazzino</div>
+        <div style="width: 45%; border-top: 1px dashed #64748b; text-align: center; padding-top: 6px;" id="prnSignatureClient">Firma Per Presa Visione Mandante</div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const i18nPortal = {
+        it: {
+            portal_subtext: "Portale Riservato Mandanti",
+            btn_disconnect: '<i class="bi bi-box-arrow-right me-1"></i> Disconnetti',
+            login_title: "Accesso Riservato Mandanti",
+            login_subtitle: "Verifica scorte in tempo reale e storico spedizioni certificate",
+            lbl_code: "Codice Identificativo Mandante",
+            lbl_pin: "PIN di Accesso",
+            btn_login: '<i class="bi bi-unlock me-1"></i> Accedi all\'Inventario',
+            demo_hint: "Account Demo: Codice <b>MCH-APEX</b> | PIN <b>1234</b>",
+            dash_title: "Riepilogo Giacenze & Inventario",
+            dash_merchant: "Mandante Registrato",
+            btn_print_report: '<i class="bi bi-printer me-1"></i> Stampa Inventario Ufficiale A4',
+            stat_skus: "Referenze Attive (SKU)",
+            stat_total_pcs: "Pezzi Totali a Magazzino",
+            stat_status: "Stato Aggiornamento",
+            stat_realtime: "In tempo reale",
+            tab_stock: '<i class="bi bi-boxes me-1"></i> 1. Situazione Merci & Scorte',
+            tab_dispatches: '<i class="bi bi-truck me-1"></i> 2. Spedizioni Evase',
+            search_stock_placeholder: "Cerca per SKU, descrizione o ubicazione...",
+            sync_hint: "Visualizzazione dinamica sincronizzata con il database centrale PostgreSQL",
+            th_sku: "SKU Mandante",
+            th_barcode: "Codice Barcode",
+            th_desc: "Descrizione Merce",
+            th_bin: "Ubicazione Scaffale",
+            th_qty: "Giacenza Reale",
+            th_status: "Stato Scorta",
+            th_doc_number: "Numero Documento",
+            th_date: "Data e Ora Evasione",
+            th_total_units: "Totale Pezzi Spediti",
+            th_doc: "Documento",
+            th_expected: "Richiesti",
+            th_picked: "Prelevati",
+            avail_in_stock: "Disponibile",
+            avail_low_stock: "Scorta Bassa",
+            avail_out: "Esaurito",
+            btn_view_print: '<i class="bi bi-file-earmark-text me-1"></i> Visualizza / Stampa',
+            empty_stock: "Nessuna referenza merce presente per questo mandante.",
+            empty_orders: "Nessuna spedizione evasa registrata.",
+            modal_detail_title: "Dettaglio Spedizione",
+            btn_print_cert: '<i class="bi bi-printer me-1"></i> Stampa Certificato Spedizione',
+            prn_inv_title: "VERBALE UFFICIALE DI INVENTARIO MERCI",
+            prn_inv_sub: "Soluzioni Adattive per la Logistica e il Fulfillment",
+            prn_cert_title: "VERBALE DI CONFORMITÀ SPEDIZIONE",
+            prn_sig_wh: "Firma Responsabile Logistica Magazzino",
+            prn_sig_client: "Firma Per Presa Visione Mandante",
+            err_enter_creds: "Inserisci sia il codice identificativo che il PIN.",
+            err_invalid_creds: "Credenziali non valide o non autorizzate."
+        },
+        en: {
+            portal_subtext: "Merchant Real-time Inventory Portal",
+            btn_disconnect: '<i class="bi bi-box-arrow-right me-1"></i> Disconnect',
+            login_title: "Merchant Portal Access",
+            login_subtitle: "Real-time stock visibility & certified dispatch tracking",
+            lbl_code: "Account Identifier Code",
+            lbl_pin: "Access PIN",
+            btn_login: '<i class="bi bi-unlock me-1"></i> Access Inventory',
+            demo_hint: "Demo Account: Code <b>MCH-APEX</b> | PIN <b>1234</b>",
+            dash_title: "Live Inventory & Dispatch Summary",
+            dash_merchant: "Enrolled Merchant",
+            btn_print_report: '<i class="bi bi-printer me-1"></i> Print Official Inventory Report A4',
+            stat_skus: "Active Catalog SKUs",
+            stat_total_pcs: "Total Units in Facility",
+            stat_status: "Sync Status",
+            stat_realtime: "Real-time live",
+            tab_stock: '<i class="bi bi-boxes me-1"></i> 1. On-Hand Inventory',
+            tab_dispatches: '<i class="bi bi-truck me-1"></i> 2. Dispatched Orders',
+            search_stock_placeholder: "Search by SKU, description or bin...",
+            sync_hint: "Real-time synchronization with central PostgreSQL database",
+            th_sku: "Merchant SKU",
+            th_barcode: "Barcode",
+            th_desc: "Item Description",
+            th_bin: "Bin Location",
+            th_qty: "Stock On-Hand",
+            th_status: "Availability",
+            th_doc_number: "Order / Slip #",
+            th_date: "Fulfillment Timestamp",
+            th_total_units: "Total Dispatched",
+            th_doc: "Document",
+            th_expected: "Expected",
+            th_picked: "Dispatched",
+            avail_in_stock: "In Stock",
+            avail_low_stock: "Low Stock",
+            avail_out: "Out of Stock",
+            btn_view_print: '<i class="bi bi-file-earmark-text me-1"></i> View / Print',
+            empty_stock: "No inventory items found for this merchant.",
+            empty_orders: "No completed dispatches registered.",
+            modal_detail_title: "Dispatch Order Detail",
+            btn_print_cert: '<i class="bi bi-printer me-1"></i> Print Packing Slip',
+            prn_inv_title: "OFFICIAL INVENTORY CERTIFICATION REPORT",
+            prn_inv_sub: "Adaptive Precision Fulfillment Logistics",
+            prn_cert_title: "OFFICIAL PACKING SLIP & DISPATCH NOTE",
+            prn_sig_wh: "Facility Logistics Officer",
+            prn_sig_client: "Merchant Representative Signature",
+            err_enter_creds: "Please enter both account code and PIN.",
+            err_invalid_creds: "Invalid credentials or unauthorized account."
+        }
+    };
+
+    let currentLang = localStorage.getItem("adaptiq_lang") || "it";
+    let currentClient = null, cachedStock = [], cachedDdtDetail = null;
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem("adaptiq_lang", lang);
+        document.getElementById("currentLangLabel").innerText = lang.toUpperCase();
+
+        document.getElementById("btnLangIt").classList.toggle("active", lang === "it");
+        document.getElementById("btnLangEn").classList.toggle("active", lang === "en");
+
+        document.querySelectorAll("[data-i18n]").forEach(elem => {
+            const key = elem.getAttribute("data-i18n");
+            if (i18nPortal[lang][key]) {
+                elem.innerHTML = i18nPortal[lang][key];
+            }
+        });
+
+        document.querySelectorAll("[data-i18n-placeholder]").forEach(elem => {
+            const key = elem.getAttribute("data-i18n-placeholder");
+            if (i18nPortal[lang][key]) {
+                elem.placeholder = i18nPortal[lang][key];
+            }
+        });
+
+        if (cachedStock.length > 0) renderStockTable(cachedStock);
+    }
+
+    async function performLogin() {
+        const codeInput = document.getElementById("loginCode");
+        const pinInput = document.getElementById("loginPin");
+        const errBox = document.getElementById("loginError");
+
+        const c = codeInput.value.trim();
+        const p = pinInput.value.trim();
+        errBox.classList.add("d-none");
+
+        if(!c || !p){
+            errBox.innerText = i18nPortal[currentLang].err_enter_creds;
+            errBox.classList.remove("d-none");
+            return;
+        }
+
+        try {
+            const res = await fetch("/api/merchant/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ account_code: c, pin: p })
+            });
+
+            if(!res.ok){
+                const errJson = await res.json().catch(() => ({}));
+                errBox.innerText = errJson.detail || i18nPortal[currentLang].err_invalid_creds;
+                errBox.classList.remove("d-none");
+                return;
+            }
+
+            currentClient = await res.json();
+            document.getElementById("clientCompanyName").innerText = currentClient.company_name;
+            document.getElementById("loginSection").classList.add("d-none");
+            document.getElementById("dashboardSection").classList.remove("d-none");
+            document.getElementById("headerUserBox").classList.remove("d-none");
+            await loadStock();
+        } catch(e){
+            console.error("Login Error:", e);
+            errBox.innerText = currentLang === 'it' ? "Errore di connessione al server." : "Server connection error.";
+            errBox.classList.remove("d-none");
+        }
+    }
+
+    async function performLogout() {
+        await fetch("/api/merchant/logout", { method: "POST" });
+        location.reload();
+    }
+
+    async function loadStock() {
+        try {
+            const res = await fetch("/api/merchant/me/inventory");
+            if(!res.ok) return;
+            cachedStock = await res.json();
+            
+            document.getElementById("statSkuCount").innerText = cachedStock.length;
+            document.getElementById("statTotalPcs").innerText = cachedStock.reduce((acc, it) => acc + (it.on_hand_qty || 0), 0) + " pcs";
+            document.getElementById("statLastUpdate").innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            renderStockTable(cachedStock);
+        } catch(err) {
+            console.error("Load stock error:", err);
+        }
+    }
+
+    function renderStockTable(items) {
+        const tb = document.getElementById("stockTableBody");
+        if(items.length === 0){
+            tb.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">${i18nPortal[currentLang].empty_stock}</td></tr>`;
+            return;
+        }
+        tb.innerHTML = items.map(i => `<tr>
+            <td class="font-monospace fw-bold text-primary">${i.sku}</td>
+            <td class="font-monospace text-muted">${i.barcode}</td>
+            <td class="fw-semibold">${i.description}</td>
+            <td><span class="badge bg-light text-dark border px-2 py-1">${i.bin_location}</span></td>
+            <td class="text-center fw-bold fs-6">${i.on_hand_qty} pcs</td>
+            <td class="text-center">
+                ${i.on_hand_qty > 20 
+                    ? `<span class="badge bg-success px-2 py-1">${i18nPortal[currentLang].avail_in_stock}</span>` 
+                    : (i.on_hand_qty > 0 ? `<span class="badge bg-warning text-dark px-2 py-1">${i18nPortal[currentLang].avail_low_stock}</span>` : `<span class="badge bg-danger px-2 py-1">${i18nPortal[currentLang].avail_out}</span>`)}
+            </td>
+        </tr>`).join("");
+    }
+
+    function filterStockTable() {
+        const q = document.getElementById("searchStockInput").value.toLowerCase();
+        renderStockTable(cachedStock.filter(x => 
+            x.sku.toLowerCase().includes(q) || 
+            x.description.toLowerCase().includes(q) || 
+            x.bin_location.toLowerCase().includes(q)
+        ));
+    }
+
+    function printStockReport() {
+        document.getElementById("prnDocTitle").innerText = i18nPortal[currentLang].prn_inv_title;
+        document.getElementById("prnSubTitle").innerText = i18nPortal[currentLang].prn_inv_sub;
+        document.getElementById("prnClientName").innerText = currentClient.company_name;
+        document.getElementById("prnTimestamp").innerText = new Date().toLocaleString();
+        document.getElementById("prnSignatureWh").innerText = i18nPortal[currentLang].prn_sig_wh;
+        document.getElementById("prnSignatureClient").innerText = i18nPortal[currentLang].prn_sig_client;
+
+        document.getElementById("prnCustomHeader").innerHTML = `
+            <b>${currentLang === 'it' ? 'Mandante' : 'Merchant'}:</b> ${currentClient.company_name} &nbsp;|&nbsp; 
+            <b>${currentLang === 'it' ? 'Referenze Censite' : 'Active SKUs'}:</b> ${cachedStock.length} SKUs &nbsp;|&nbsp; 
+            <b>${currentLang === 'it' ? 'Totale Pezzi a Magazzino' : 'Total Stock On-Hand'}:</b> <b style="color: #15803d;">${cachedStock.reduce((a,c) => a + c.on_hand_qty, 0)} pcs</b>
+        `;
+        document.getElementById("prnTableHead").innerHTML = `
+            <tr>
+                <th style="width: 5%; text-align: center;">#</th>
+                <th style="width: 22%;">${i18nPortal[currentLang].th_sku}</th>
+                <th style="width: 20%;">${i18nPortal[currentLang].th_barcode}</th>
+                <th style="width: 33%;">${i18nPortal[currentLang].th_desc}</th>
+                <th style="width: 10%; text-align: center;">${i18nPortal[currentLang].th_bin}</th>
+                <th style="width: 10%; text-align: center;">${i18nPortal[currentLang].th_qty}</th>
+            </tr>
+        `;
+        document.getElementById("prnTableBody").innerHTML = cachedStock.map((it, idx) => `
+            <tr>
+                <td style="text-align: center;">${idx+1}</td>
+                <td style="font-family: monospace; font-weight: bold; color: #0284c7;">${it.sku}</td>
+                <td style="font-family: monospace;">${it.barcode}</td>
+                <td>${it.description}</td>
+                <td style="text-align: center;">${it.bin_location}</td>
+                <td style="text-align: center; font-weight: bold; color: #0f172a;">${it.on_hand_qty} pcs</td>
+            </tr>
+        `).join("");
+        window.print();
+    }
+
+    async function loadOrders() {
+        try {
+            const res = await fetch("/api/merchant/me/orders");
+            if(!res.ok) return;
+            const orders = await res.json();
+            const tb = document.getElementById("ordersTableBody");
+            if(orders.length === 0){
+                tb.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">${i18nPortal[currentLang].empty_orders}</td></tr>`;
+                return;
+            }
+            tb.innerHTML = orders.map(o => `<tr>
+                <td>#${o.id}</td>
+                <td class="font-monospace fw-bold text-primary">${o.order_number}</td>
+                <td>${o.processed_at}</td>
+                <td class="text-center fw-bold">${o.total_units} pcs</td>
+                <td class="text-center"><span class="badge bg-success px-2 py-1">${o.status}</span></td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary fw-bold" onclick="showOrderDetail(${o.id})">
+                        ${i18nPortal[currentLang].btn_view_print}
+                    </button>
+                </td>
+            </tr>`).join("");
+        } catch(err) {
+            console.error("Load orders error:", err);
+        }
+    }
+
+    async function showOrderDetail(id) {
+        const res = await fetch(`/api/orders/${id}`);
+        if(!res.ok) return;
+        cachedDdtDetail = await res.json();
+        document.getElementById("modalDdtTitle").innerText = `${i18nPortal[currentLang].th_doc_number}: ${cachedDdtDetail.header.order_number}`;
+        document.getElementById("modalDdtBody").innerHTML = cachedDdtDetail.lines.map(r => `<tr>
+            <td class="font-monospace fw-bold text-primary">${r.sku}</td>
+            <td class="font-monospace text-muted">${r.barcode}</td>
+            <td>${r.description}</td>
+            <td><span class="badge bg-light text-dark border">${r.bin_location}</span></td>
+            <td class="text-center">${r.expected_qty}</td>
+            <td class="text-center fw-bold text-success">${r.picked_qty}</td>
+        </tr>`).join("");
+        new bootstrap.Modal(document.getElementById("ddtDetailModal")).show();
+    }
+
+    function printModalDdt() {
+        if(!cachedDdtDetail) return;
+        document.getElementById("prnDocTitle").innerText = i18nPortal[currentLang].prn_cert_title;
+        document.getElementById("prnClientName").innerText = currentClient.company_name;
+        document.getElementById("prnTimestamp").innerText = new Date().toLocaleString();
+        document.getElementById("prnCustomHeader").innerHTML = `
+            <b>${i18nPortal[currentLang].th_doc_number}:</b> <span style="color:#0284c7;">${cachedDdtDetail.header.order_number}</span> &nbsp;|&nbsp; 
+            <b>${i18nPortal[currentLang].th_date}:</b> ${cachedDdtDetail.header.processed_at} &nbsp;|&nbsp; 
+            <b>${i18nPortal[currentLang].th_total_units}:</b> <b style="color: #15803d;">${cachedDdtDetail.header.total_units} pcs</b>
+        `;
+        document.getElementById("prnTableHead").innerHTML = `
+            <tr>
+                <th style="width: 5%; text-align: center;">#</th>
+                <th style="width: 22%;">SKU</th>
+                <th style="width: 20%;">Barcode</th>
+                <th style="width: 33%;">${i18nPortal[currentLang].th_desc}</th>
+                <th style="width: 10%; text-align: center;">${i18nPortal[currentLang].th_expected}</th>
+                <th style="width: 10%; text-align: center;">${i18nPortal[currentLang].th_picked}</th>
+            </tr>
+        `;
+        document.getElementById("prnTableBody").innerHTML = cachedDdtDetail.lines.map((r, idx) => `
+            <tr>
+                <td style="text-align: center;">${idx+1}</td>
+                <td style="font-family: monospace; font-weight: bold;">${r.sku}</td>
+                <td style="font-family: monospace;">${r.barcode}</td>
+                <td>${r.description}</td>
+                <td style="text-align: center;">${r.expected_qty}</td>
+                <td style="text-align: center; font-weight: bold; color: green;">${r.picked_qty}</td>
+            </tr>
+        `).join("");
+        window.print();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        setLanguage(currentLang);
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AdaptiQ WMS - Workstation Console</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary-blue: #0284c7;
+            --primary-blue-dark: #0369a1;
+            --accent-amber: #f59e0b;
+            --accent-amber-hover: #d97706;
+            --surface-bg: #f8fafc;
+            --text-main: #0f172a;
+        }
+
+        body {
+            background-color: var(--surface-bg);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+        }
+
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+            outline: 3px solid var(--accent-amber) !important;
+            outline-offset: 2px !important;
+        }
+
+        .navbar-custom {
+            background-color: #ffffff;
+            border-bottom: 3px solid var(--accent-amber);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+
+        .brand-text-fallback {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: var(--primary-blue);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .brand-subtext {
+            color: #b45309;
+            font-size: 0.78rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .card-custom {
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+        }
+
+        .btn-brand-primary {
+            background-color: var(--primary-blue);
+            color: #ffffff;
+            font-weight: 700;
+            border: none;
+            padding: 0.55rem 1.1rem;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .btn-brand-primary:hover { background-color: var(--primary-blue-dark); color: #ffffff; }
+
+        .btn-brand-amber {
+            background-color: var(--accent-amber);
+            color: #000000;
+            font-weight: 700;
+            border: none;
+            padding: 0.55rem 1.1rem;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .btn-brand-amber:hover { background-color: var(--accent-amber-hover); color: #000000; }
+
+        .mode-order {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%) !important;
+            border: 2px solid var(--primary-blue) !important;
+        }
+        .mode-picking {
+            background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%) !important;
+            border: 2px solid var(--accent-amber) !important;
+        }
+
+        .row-ok { background-color: #dcfce7 !important; }
+        .row-prog { background-color: #fef9c3 !important; }
+
+        #cameraScannerContainer {
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        @media print {
+            body { background: white; margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            #printArea { display: block !important; }
+            @page { size: A4 portrait; margin: 12mm; }
+            table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+            th { background-color: #0f172a !important; color: white !important; -webkit-print-color-adjust: exact; padding: 7px; }
+            td { padding: 7px; border-bottom: 1px solid #cbd5e1; }
+        }
+        #printArea { display: none; }
+    </style>
+</head>
+<body>
+
+<header class="navbar-custom py-2 px-3 mb-3 no-print">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <div>
+                <span class="brand-text-fallback">⚡ AdaptiQ WMS</span>
+                <span class="brand-subtext" data-i18n="brand_subtext">Motore di Gestione e Spedizione Merci</span>
+            </div>
+            <span class="badge bg-dark ms-2 d-none d-md-inline-block px-2 py-1" data-i18n="badge_console">Console Banco</span>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <!-- SELETTORE LINGUA DINAMICO -->
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle fw-bold d-flex align-items-center gap-1 shadow-sm" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-translate"></i>
+                    <span id="currentLangLabel">IT</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="langDropdown">
+                    <li><a class="dropdown-item fw-semibold" id="btnLangIt" href="javascript:void(0)" onclick="setLanguage('it')">🇮🇹 Italiano</a></li>
+                    <li><a class="dropdown-item fw-semibold" id="btnLangEn" href="javascript:void(0)" onclick="setLanguage('en')">🇬🇧 English</a></li>
+                </ul>
+            </div>
+
+            <a href="/portal" target="_blank" class="btn btn-brand-amber shadow-sm btn-sm py-2" data-i18n="nav_portal">
+                <i class="bi bi-box-arrow-up-right me-1"></i> Portale Mandanti ↗
+            </a>
+        </div>
+    </div>
+</header>
+
+<main class="container-fluid px-2 px-md-4 no-print">
+    <ul class="nav nav-pills gap-2 mb-3" id="opTab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active fw-bold px-3 py-2" id="btn-tab-picking" data-bs-toggle="tab" data-bs-target="#tab-picking" data-i18n="tab_picking">
+                <i class="bi bi-upc-scan me-1"></i> 1. Evasione Spedizione (Picking)
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-inbound" data-bs-toggle="tab" data-bs-target="#tab-inbound" onclick="initInboundMerchants()" data-i18n="tab_inbound">
+                <i class="bi bi-box-arrow-in-down me-1"></i> 2. Ricezione Merci (Inbound)
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-history" data-bs-toggle="tab" data-bs-target="#tab-history" onclick="loadHistory()" data-i18n="tab_history">
+                <i class="bi bi-clock-history me-1"></i> 3. Storico Spedizioni
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold px-3 py-2 text-success border border-success-subtle" id="btn-tab-inventory" data-bs-toggle="tab" data-bs-target="#tab-inventory" onclick="loadInventoryOperator()" data-i18n="tab_inventory">
+                <i class="bi bi-boxes me-1"></i> 4. Giacenze & Inventario
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-merchants" data-bs-toggle="tab" data-bs-target="#tab-merchants" onclick="renderMerchantsDirectory()" data-i18n="tab_merchants">
+                <i class="bi bi-people-fill me-1"></i> 5. Anagrafica Mandanti
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- TAB 1: PICKING / FULFILLMENT -->
+        <div class="tab-pane fade show active" id="tab-picking">
+            <div class="card card-custom p-3 mb-3" id="statusCard">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label for="selectPickingMerchant" class="form-label small fw-bold text-muted" data-i18n="lbl_merchant">Mandante / Cliente</label>
+                        <select id="selectPickingMerchant" class="form-select fw-bold border-2"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="activeOrderNumber" class="form-label small fw-bold text-muted" data-i18n="lbl_doc_ref">Rif. DDT / Packing Slip</label>
+                        <div class="input-group">
+                            <input type="text" id="activeOrderNumber" class="form-control fw-bold border-2" placeholder="Nessun documento attivo" readonly>
+                            <button class="btn btn-brand-primary" onclick="openNewOrderModal()" data-i18n="btn_new_order">Nuovo (F1)</button>
+                            <button class="btn btn-outline-danger" title="Azzera ordine corrente" onclick="clearCurrentOrder()"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-muted" data-i18n="lbl_stage">Fase Operativa</label>
+                        <button id="btnToggleMode" class="btn w-100 fw-bold border-2" onclick="toggleMode()">CARICA DA DDT (F12)</button>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-muted" data-i18n="lbl_multiplier">Moltiplicatore Quantità</label>
+                        <div class="d-flex align-items-center">
+                            <span id="multBadge" class="badge bg-secondary d-flex align-items-center px-3 py-2 fs-6">1x</span>
+                            <button class="btn btn-outline-secondary fw-bold ms-2" onclick="promptMultiplier()" data-i18n="btn_qty">Q.tà (F2)</button>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <button id="btnFinalizeOrder" class="btn btn-success fw-bold d-none w-100 py-2 shadow" onclick="finalizeOrder()" data-i18n="btn_finalize">
+                            <i class="bi bi-printer me-1"></i> Emetti Verbale A4
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCAN BAR -->
+            <div class="card card-custom p-2 mb-3 border-2 border-primary">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text bg-primary text-white fw-bold d-none d-md-inline" id="scanLabel" data-i18n="scan_label">Scansione Barcode:</span>
+                    <input type="text" id="barcodeInput" class="form-control fw-bold font-monospace" placeholder="Inquadra Barcode o digita [QTA*CODICE]..." data-i18n-placeholder="scan_placeholder" autofocus>
+                    <button class="btn btn-warning fw-bold px-3 d-flex align-items-center gap-1" type="button" onclick="startCameraScanner()" title="Scansiona con fotocamera">
+                        <i class="bi bi-camera-fill fs-5"></i>
+                        <span class="d-none d-sm-inline" data-i18n="btn_camera">Fotocamera</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card card-custom overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th data-i18n="th_bin">Ubicazione</th>
+                                <th data-i18n="th_sku">SKU</th>
+                                <th data-i18n="th_barcode">Barcode (EAN)</th>
+                                <th data-i18n="th_desc">Descrizione Merce</th>
+                                <th class="text-center" data-i18n="th_expected">Atteso</th>
+                                <th class="text-center" data-i18n="th_picked">Prelevato</th>
+                                <th class="text-center" data-i18n="th_status">Stato</th>
+                                <th class="text-center" data-i18n="th_actions">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderTableBody">
+                            <tr><td colspan="8" class="text-center text-muted py-4" data-i18n="no_active_order">Nessun documento attivo. Premi <b>Nuovo (F1)</b> per iniziare.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: INBOUND CARICO -->
+        <div class="tab-pane fade" id="tab-inbound">
+            <div class="row g-3">
+                <div class="col-md-5 col-lg-4">
+                    <div class="card card-custom p-3 border-start border-4 border-success">
+                        <h5 class="fw-bold text-success mb-3" data-i18n="inbound_title"><i class="bi bi-box-seam me-1"></i> Registrazione Merci in Entrata</h5>
+                        <div class="mb-2">
+                            <label for="inboundMerchant" class="form-label small fw-bold" data-i18n="inbound_owner">Mandante Proprietario</label>
+                            <select id="inboundMerchant" class="form-select"></select>
+                        </div>
+                        <div class="mb-2">
+                            <label for="inboundBarcode" class="form-label small fw-bold" data-i18n="inbound_barcode">Codice a Barre (EAN)</label>
+                            <div class="input-group">
+                                <input type="text" id="inboundBarcode" class="form-control font-monospace" onblur="checkExistingBarcode()">
+                                <button class="btn btn-outline-secondary" type="button" onclick="startInboundCameraScan()" title="Scansiona con fotocamera">
+                                    <i class="bi bi-camera-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label for="inboundSku" class="form-label small fw-bold" data-i18n="inbound_sku">SKU Articolo</label>
+                            <input type="text" id="inboundSku" class="form-control font-monospace">
+                        </div>
+                        <div class="mb-2">
+                            <label for="inboundDesc" class="form-label small fw-bold" data-i18n="inbound_desc">Descrizione Articolo</label>
+                            <input type="text" id="inboundDesc" class="form-control">
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label for="inboundLoc" class="form-label small fw-bold" data-i18n="inbound_loc">Ubicazione Scaffale</label>
+                                <input type="text" id="inboundLoc" class="form-control font-monospace" placeholder="Es. A-01-01">
+                            </div>
+                            <div class="col-6">
+                                <label for="inboundQty" class="form-label small fw-bold" data-i18n="inbound_qty">Quantità</label>
+                                <input type="number" id="inboundQty" class="form-control fw-bold text-success" value="10" min="1">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="inboundDocRef" class="form-label small fw-bold" data-i18n="inbound_ref">Rif. DDT Entrata / Carico</label>
+                            <input type="text" id="inboundDocRef" class="form-control" placeholder="Es. CARICO-2026/01">
+                        </div>
+                        <button class="btn btn-success w-100 fw-bold py-2" onclick="submitInbound()" data-i18n="btn_submit_inbound">
+                            <i class="bi bi-plus-circle me-1"></i> Carica e Aggiorna Giacenza
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-7 col-lg-8">
+                    <div class="card card-custom p-3">
+                        <h6 class="fw-bold mb-3" data-i18n="inbound_history_title"><i class="bi bi-clock-history me-1"></i> Ultimi Carichi Effettuati</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle m-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th data-i18n="th_sku">SKU</th>
+                                        <th data-i18n="th_barcode">Barcode</th>
+                                        <th data-i18n="th_desc">Descrizione</th>
+                                        <th data-i18n="th_bin">Ubicaz.</th>
+                                        <th class="text-center" data-i18n="th_expected">Q.tà</th>
+                                        <th data-i18n="th_status">Esito</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inboundHistoryBody">
+                                    <tr><td colspan="6" class="text-center text-muted py-4" data-i18n="inbound_empty">Nessun carico registrato nella sessione corrente.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: STORICO SPEDIZIONI -->
+        <div class="tab-pane fade" id="tab-history">
+            <div class="card card-custom p-3 mb-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label for="historyDate" class="form-label m-0 fw-bold" data-i18n="lbl_filter_date">Filtra per Data:</label></div>
+                    <div class="col-auto"><input type="date" id="historyDate" class="form-control form-control-sm"></div>
+                    <div class="col-auto">
+                        <button class="btn btn-sm btn-brand-primary" onclick="loadHistory(false)" data-i18n="btn_filter">Filtra</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadHistory(true)" data-i18n="btn_show_all">Mostra Tutti</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card card-custom">
+                        <div class="card-header bg-white fw-bold" data-i18n="history_orders_title">Elenco Spedizioni Evase</div>
+                        <div class="table-responsive" style="max-height: 480px;">
+                            <table class="table table-hover align-middle m-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th data-i18n="th_doc_number">N° Documento</th>
+                                        <th data-i18n="th_merchant">Mandante</th>
+                                        <th data-i18n="th_date">Data Evasione</th>
+                                        <th data-i18n="th_units">Pezzi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card card-custom">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <span class="fw-bold" id="detailTitle" data-i18n="history_detail_title">Dettaglio Righe Spedizione</span>
+                            <button id="btnPrintHistory" class="btn btn-sm btn-brand-amber fw-bold d-none" onclick="printSelectedHistory()" data-i18n="btn_reprint">
+                                <i class="bi bi-printer me-1"></i> Ristampa Verbale A4
+                            </button>
+                        </div>
+                        <div class="table-responsive" style="max-height: 480px;">
+                            <table class="table table-sm align-middle m-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th data-i18n="th_sku">SKU</th>
+                                        <th data-i18n="th_barcode">Barcode</th>
+                                        <th data-i18n="th_desc">Descrizione</th>
+                                        <th data-i18n="th_bin">Ubicaz.</th>
+                                        <th class="text-center" data-i18n="th_expected">Atteso</th>
+                                        <th class="text-center" data-i18n="th_picked">Prelevato</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyDetailBody">
+                                    <tr><td colspan="6" class="text-center text-muted py-4" data-i18n="history_select_hint">Seleziona una spedizione dall'elenco a sinistra.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: GIACENZE & INVENTARIO -->
+        <div class="tab-pane fade" id="tab-inventory">
+            <div class="card card-custom p-3 mb-3">
+                <div class="row g-2 align-items-center justify-content-between">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                            <input type="text" id="filterInvText" class="form-control" placeholder="Cerca SKU, descrizione, barcode, ubicazione..." data-i18n-placeholder="filter_inv_placeholder" onkeyup="filterInventoryTable()">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <label class="input-group-text bg-light small fw-bold" for="filterInvMerchant" data-i18n="lbl_merchant_filter">Mandante:</label>
+                            <select id="filterInvMerchant" class="form-select fw-bold" onchange="loadInventoryOperator()">
+                                <option value="" data-i18n="opt_all_merchants">-- TUTTI I MANDANTI --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <button class="btn btn-brand-amber fw-bold shadow-sm" onclick="printInventoryReportOp()" data-i18n="btn_print_inventory">
+                            <i class="bi bi-printer me-1"></i> Stampa Inventario A4
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-custom overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th data-i18n="th_bin">Ubicazione</th>
+                                <th data-i18n="th_sku">SKU Articolo</th>
+                                <th data-i18n="th_barcode">Barcode (EAN)</th>
+                                <th data-i18n="th_desc">Descrizione</th>
+                                <th data-i18n="th_merchant">Mandante</th>
+                                <th class="text-center" data-i18n="th_on_hand">Giacenza Reale</th>
+                                <th class="text-center" data-i18n="th_availability">Disponibilità</th>
+                                <th class="text-center" data-i18n="th_adjust">Rettifica</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <tr><td colspan="8" class="text-center text-muted py-4" data-i18n="inventory_loading">Caricamento inventario in corso...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: ANAGRAFICA MANDANTI -->
+        <div class="tab-pane fade" id="tab-merchants">
+            <div class="row g-3">
+                <div class="col-md-5 col-lg-4">
+                    <div class="card card-custom p-4 border-start border-4 border-primary">
+                        <h5 class="fw-bold text-primary mb-3" data-i18n="merchant_new_title">Inserimento Nuovo Mandante</h5>
+                        <div class="mb-3">
+                            <label for="newMerchantCode" class="form-label small fw-bold" data-i18n="merchant_code">Codice Identificativo (Univoco)</label>
+                            <input type="text" id="newMerchantCode" class="form-control font-monospace text-uppercase" placeholder="Es. MCH-DELTA">
+                        </div>
+                        <div class="mb-3">
+                            <label for="newMerchantName" class="form-label small fw-bold" data-i18n="merchant_name">Ragione Sociale Completa</label>
+                            <input type="text" id="newMerchantName" class="form-control" placeholder="Es. Delta Commercio Srl">
+                        </div>
+                        <div class="mb-4">
+                            <label for="newMerchantPin" class="form-label small fw-bold" data-i18n="merchant_pin">PIN di Accesso Iniziale</label>
+                            <input type="password" id="newMerchantPin" class="form-control" placeholder="••••">
+                        </div>
+                        <button class="btn btn-brand-primary w-100 fw-bold py-2 shadow-sm" onclick="saveNewMerchant()" data-i18n="btn_save_merchant">
+                            <i class="bi bi-check-circle me-1"></i> Salva Mandante
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-7 col-lg-8">
+                    <div class="card card-custom p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold m-0" data-i18n="merchant_list_title">Elenco Mandanti Attivi</h5>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="renderMerchantsDirectory()" data-i18n="btn_refresh">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Aggiorna
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle m-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th data-i18n="th_account_code">Codice</th>
+                                        <th data-i18n="th_company_name">Ragione Sociale</th>
+                                        <th class="text-center" data-i18n="th_skus_count">SKU Gestiti</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="merchantsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- MODALE RETTIFICA INVENTARIO -->
+<div class="modal fade" id="modalAdjustStock" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-custom">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="adjustModalTitle" data-i18n="modal_adjust_title">Rettifica Giacenza Fisica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="adjustModalSku">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold" data-i18n="modal_adjust_qty_lbl">Nuova Giacenza Rilevata a Scaffale</label>
+                    <div class="input-group input-group-lg">
+                        <button class="btn btn-outline-secondary" type="button" onclick="stepCount(-1)">-1</button>
+                        <input type="number" id="adjustModalQty" class="form-control text-center fw-bold fs-4" min="0">
+                        <button class="btn btn-outline-secondary" type="button" onclick="stepCount(1)">+1</button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold" data-i18n="modal_adjust_reason_lbl">Causale della Rettifica</label>
+                    <select id="adjustModalReason" class="form-select">
+                        <option value="INVENTARIO_PERIODICO" data-i18n="opt_reason_count">Conteggio / Inventario Periodico</option>
+                        <option value="MERCE_DANNEGGIATA" data-i18n="opt_reason_damaged">Merce Danneggiata / Deteriorata</option>
+                        <option value="ECCEDENZA_TROVATA" data-i18n="opt_reason_extra">Eccedenza Reperita a Scaffale</option>
+                        <option value="ERRORE_INSERIMENTO" data-i18n="opt_reason_error">Correzione Errore Operatore</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="btn_cancel">Annulla</button>
+                <button type="button" class="btn btn-brand-primary" onclick="submitAdjustModal()" data-i18n="btn_confirm_save">Conferma e Salva</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE TELECAMERA -->
+<div class="modal fade no-print" id="cameraModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-custom bg-black text-white">
+            <div class="modal-header border-0 py-2">
+                <h6 class="modal-title fw-bold"><i class="bi bi-camera me-1"></i> <span data-i18n="camera_modal_title">Scansione Barcode Fotocamera</span></h6>
+                <button type="button" class="btn-close btn-close-white" onclick="stopCameraScanner()"></button>
+            </div>
+            <div class="modal-body p-2 text-center">
+                <div id="cameraScannerContainer"><div id="reader"></div></div>
+            </div>
+            <div class="modal-footer border-0 py-2 d-flex justify-content-between">
+                <button type="button" id="btnToggleTorch" class="btn btn-sm btn-outline-warning d-none" onclick="toggleCameraTorch()">
+                    <i class="bi bi-lightbulb-fill me-1"></i> <span data-i18n="btn_torch">Torcia</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary ms-auto" onclick="stopCameraScanner()" data-i18n="btn_close">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AREA STAMPA A4 -->
+<div id="printArea">
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+            <h2 style="color: #0284c7; margin: 0; font-weight: 900;">⚡ AdaptiQ WMS</h2>
+            <div style="font-size: 8.5pt; color: #64748b; font-weight: bold;" id="prnSubTitle">Verbale Ufficiale di Spedizione e Conformità</div>
+            <h4 style="margin: 4px 0 0 0; color: #0f172a;" id="prnDocTitle">DOCUMENTO DI CONSEGNA / PACKING SLIP</h4>
+        </div>
+        <div style="text-align: right; font-size: 8.5pt;">
+            ID Documento: <b id="prnId"></b><br>
+            Data: <span id="prnDate"></span>
+        </div>
+    </div>
+    <div id="prnCustomHeader" style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; font-size: 9.5pt;">
+        <div><b id="prnMerchantLbl">Mandante:</b> <span id="prnMerchant"></span></div>
+        <div><b id="prnOrderRefLbl">Rif. Ordine/DDT:</b> <span id="prnOrderNum" style="color: #0284c7; font-weight: bold;"></span></div>
+        <div><b id="prnTotalLbl">Pezzi Totali:</b> <b id="prnQty" style="color: #15803d;"></b></div>
+    </div>
+    <table>
+        <thead id="prnTableHead">
+            <tr>
+                <th style="width: 5%; text-align: center;">#</th>
+                <th style="width: 20%;">SKU</th>
+                <th style="width: 20%;">Barcode</th>
+                <th style="width: 35%;">Descrizione Articolo</th>
+                <th style="width: 10%; text-align: center;">Ubicaz.</th>
+                <th style="width: 10%; text-align: center;">Prelevato</th>
+            </tr>
+        </thead>
+        <tbody id="prnTableBody"></tbody>
+    </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // DIZIONARIO LOCALIZZAZIONE DINAMICA (IT / EN)
+    const i18n = {
+        it: {
+            brand_subtext: "Motore di Gestione e Spedizione Merci",
+            badge_console: "Console Banco",
+            nav_portal: '<i class="bi bi-box-arrow-up-right me-1"></i> Portale Mandanti ↗',
+            tab_picking: '<i class="bi bi-upc-scan me-1"></i> 1. Evasione Spedizione (Picking)',
+            tab_inbound: '<i class="bi bi-box-arrow-in-down me-1"></i> 2. Ricezione Merci (Inbound)',
+            tab_history: '<i class="bi bi-clock-history me-1"></i> 3. Storico Spedizioni',
+            tab_inventory: '<i class="bi bi-boxes me-1"></i> 4. Giacenze & Inventario',
+            tab_merchants: '<i class="bi bi-people-fill me-1"></i> 5. Anagrafica Mandanti',
+            lbl_merchant: "Mandante / Cliente",
+            lbl_doc_ref: "Rif. DDT / Packing Slip",
+            btn_new_order: "Nuovo (F1)",
+            lbl_stage: "Fase Operativa",
+            stage_order_btn: "CARICA DA DDT (F12)",
+            stage_picking_btn: "PRELIEVO SCAFFALE (F12)",
+            lbl_multiplier: "Moltiplicatore Quantità",
+            btn_qty: "Q.tà (F2)",
+            btn_finalize: '<i class="bi bi-printer me-1"></i> Emetti Verbale A4',
+            scan_label: "Scansione Barcode:",
+            scan_placeholder: "Inquadra Barcode o digita [QTA*CODICE]...",
+            btn_camera: "Fotocamera",
+            th_bin: "Ubicazione",
+            th_sku: "SKU",
+            th_barcode: "Barcode (EAN)",
+            th_desc: "Descrizione Merce",
+            th_expected: "Atteso",
+            th_picked: "Prelevato",
+            th_status: "Stato",
+            th_actions: "Azioni",
+            no_active_order: "Nessun documento attivo. Premi <b>Nuovo (F1)</b> per iniziare.",
+            status_done: "COMPLETATO",
+            status_queued: "IN CODA",
+            inbound_title: '<i class="bi bi-box-seam me-1"></i> Registrazione Merci in Entrata',
+            inbound_owner: "Mandante Proprietario",
+            inbound_barcode: "Codice a Barre (EAN)",
+            inbound_sku: "SKU Articolo",
+            inbound_desc: "Descrizione Articolo",
+            inbound_loc: "Ubicazione Scaffale",
+            inbound_qty: "Quantità",
+            inbound_ref: "Rif. DDT Entrata / Carico",
+            btn_submit_inbound: '<i class="bi bi-plus-circle me-1"></i> Carica e Aggiorna Giacenza',
+            inbound_history_title: '<i class="bi bi-clock-history me-1"></i> Ultimi Carichi Effettuati',
+            inbound_empty: "Nessun carico registrato nella sessione corrente.",
+            lbl_filter_date: "Filtra per Data:",
+            btn_filter: "Filtra",
+            btn_show_all: "Mostra Tutti",
+            history_orders_title: "Elenco Spedizioni Evase",
+            th_doc_number: "N° Documento",
+            th_merchant: "Mandante",
+            th_date: "Data Evasione",
+            th_units: "Pezzi",
+            history_detail_title: "Dettaglio Righe Spedizione",
+            btn_reprint: '<i class="bi bi-printer me-1"></i> Ristampa Verbale A4',
+            history_select_hint: "Seleziona una spedizione dall'elenco a sinistra.",
+            filter_inv_placeholder: "Cerca SKU, descrizione, barcode, ubicazione...",
+            lbl_merchant_filter: "Mandante:",
+            opt_all_merchants: "-- TUTTI I MANDANTI --",
+            btn_print_inventory: '<i class="bi bi-printer me-1"></i> Stampa Inventario A4',
+            th_on_hand: "Giacenza Reale",
+            th_availability: "Disponibilità",
+            th_adjust: "Rettifica",
+            inventory_loading: "Caricamento inventario in corso...",
+            avail_in_stock: "Disponibile",
+            avail_low_stock: "Scorta Bassa",
+            avail_out: "Esaurito",
+            btn_adjust_action: "Rettifica",
+            merchant_new_title: "Inserimento Nuovo Mandante",
+            merchant_code: "Codice Identificativo (Univoco)",
+            merchant_name: "Ragione Sociale Completa",
+            merchant_pin: "PIN di Accesso Iniziale",
+            btn_save_merchant: '<i class="bi bi-check-circle me-1"></i> Salva Mandante',
+            merchant_list_title: "Elenco Mandanti Attivi",
+            btn_refresh: '<i class="bi bi-arrow-clockwise me-1"></i> Aggiorna',
+            th_account_code: "Codice",
+            th_company_name: "Ragione Sociale",
+            th_skus_count: "SKU Gestiti",
+            modal_adjust_title: "Rettifica Giacenza Fisica",
+            modal_adjust_qty_lbl: "Nuova Giacenza Rilevata a Scaffale",
+            modal_adjust_reason_lbl: "Causale della Rettifica",
+            opt_reason_count: "Conteggio / Inventario Periodico",
+            opt_reason_damaged: "Merce Danneggiata / Deteriorata",
+            opt_reason_extra: "Eccedenza Reperita a Scaffale",
+            opt_reason_error: "Correzione Errore Operatore",
+            btn_cancel: "Annulla",
+            btn_confirm_save: "Conferma e Salva",
+            camera_modal_title: "Scansione Barcode Fotocamera",
+            btn_torch: "Torcia",
+            btn_close: "Chiudi"
+        },
+        en: {
+            brand_subtext: "High-Velocity Fulfillment Engine",
+            badge_console: "Workstation Console",
+            nav_portal: '<i class="bi bi-box-arrow-up-right me-1"></i> Merchant Portal ↗',
+            tab_picking: '<i class="bi bi-upc-scan me-1"></i> 1. Outbound Fulfillment',
+            tab_inbound: '<i class="bi bi-box-arrow-in-down me-1"></i> 2. Inbound Receiving',
+            tab_history: '<i class="bi bi-clock-history me-1"></i> 3. Dispatch History',
+            tab_inventory: '<i class="bi bi-boxes me-1"></i> 4. Stock & Cycle Count',
+            tab_merchants: '<i class="bi bi-people-fill me-1"></i> 5. Merchant Directory',
+            lbl_merchant: "Merchant Account",
+            lbl_doc_ref: "Packing Slip / Order Ref",
+            btn_new_order: "New (F1)",
+            lbl_stage: "Stage",
+            stage_order_btn: "LOAD ORDER (F12)",
+            stage_picking_btn: "BIN PICKING (F12)",
+            lbl_multiplier: "Quantity Multiplier",
+            btn_qty: "Qty (F2)",
+            btn_finalize: '<i class="bi bi-printer me-1"></i> Fulfill & Print A4',
+            scan_label: "Scan Barcode:",
+            scan_placeholder: "Scan Barcode or type [QTY*CODE]...",
+            btn_camera: "Camera",
+            th_bin: "Bin Location",
+            th_sku: "SKU",
+            th_barcode: "Barcode (EAN)",
+            th_desc: "Item Description",
+            th_expected: "Expected",
+            th_picked: "Picked",
+            th_status: "Status",
+            th_actions: "Actions",
+            no_active_order: "No active order. Press <b>New (F1)</b> to begin.",
+            status_done: "COMPLETE",
+            status_queued: "QUEUED",
+            inbound_title: '<i class="bi bi-box-seam me-1"></i> Inbound Goods Receiving',
+            inbound_owner: "Owner Merchant",
+            inbound_barcode: "Barcode (EAN)",
+            inbound_sku: "Product SKU",
+            inbound_desc: "Item Description",
+            inbound_loc: "Bin Location",
+            inbound_qty: "Quantity",
+            inbound_ref: "Inbound Ref / PO #",
+            btn_submit_inbound: '<i class="bi bi-plus-circle me-1"></i> Receive & Commit Stock',
+            inbound_history_title: '<i class="bi bi-clock-history me-1"></i> Recent Inbound Activity',
+            inbound_empty: "No inbound items received during this session.",
+            lbl_filter_date: "Filter by Date:",
+            btn_filter: "Filter",
+            btn_show_all: "Show All",
+            history_orders_title: "Dispatched Shipments",
+            th_doc_number: "Order / Slip #",
+            th_merchant: "Merchant",
+            th_date: "Fulfillment Date",
+            th_units: "Units",
+            history_detail_title: "Order Lines Detail",
+            btn_reprint: '<i class="bi bi-printer me-1"></i> Reprint Packing Slip',
+            history_select_hint: "Select a shipment from the list on the left.",
+            filter_inv_placeholder: "Search SKU, description, barcode, bin...",
+            lbl_merchant_filter: "Merchant:",
+            opt_all_merchants: "-- ALL MERCHANTS --",
+            btn_print_inventory: '<i class="bi bi-printer me-1"></i> Print Inventory Sheet A4',
+            th_on_hand: "Stock On-Hand",
+            th_availability: "Availability",
+            th_adjust: "Reconcile",
+            inventory_loading: "Loading inventory data...",
+            avail_in_stock: "In Stock",
+            avail_low_stock: "Low Stock",
+            avail_out: "Out of Stock",
+            btn_adjust_action: "Adjust",
+            merchant_new_title: "Enroll New Merchant",
+            merchant_code: "Account Code (Unique)",
+            merchant_name: "Legal Company Name",
+            merchant_pin: "Initial Access PIN",
+            btn_save_merchant: '<i class="bi bi-check-circle me-1"></i> Save Merchant',
+            merchant_list_title: "Active Merchants Directory",
+            btn_refresh: '<i class="bi bi-arrow-clockwise me-1"></i> Refresh',
+            th_account_code: "Account Code",
+            th_company_name: "Company Name",
+            th_skus_count: "Active SKUs",
+            modal_adjust_title: "Cycle Count Reconciliation",
+            modal_adjust_qty_lbl: "Physical Count on Bin",
+            modal_adjust_reason_lbl: "Audit Reason",
+            opt_reason_count: "Periodic Cycle Count",
+            opt_reason_damaged: "Damaged / Discarded Goods",
+            opt_reason_extra: "Found Extra Unregistered Stock",
+            opt_reason_error: "Correction of Prior Human Error",
+            btn_cancel: "Cancel",
+            btn_confirm_save: "Confirm & Commit",
+            camera_modal_title: "Camera Barcode Scanner",
+            btn_torch: "Torch",
+            btn_close: "Close"
+        }
+    };
+
+    let currentLang = localStorage.getItem("adaptiq_lang") || "it";
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem("adaptiq_lang", lang);
+        document.getElementById("currentLangLabel").innerText = lang.toUpperCase();
+
+        document.getElementById("btnLangIt").classList.toggle("active", lang === "it");
+        document.getElementById("btnLangEn").classList.toggle("active", lang === "en");
+
+        document.querySelectorAll("[data-i18n]").forEach(elem => {
+            const key = elem.getAttribute("data-i18n");
+            if (i18n[lang][key]) {
+                elem.innerHTML = i18n[lang][key];
+            }
+        });
+
+        document.querySelectorAll("[data-i18n-placeholder]").forEach(elem => {
+            const key = elem.getAttribute("data-i18n-placeholder");
+            if (i18n[lang][key]) {
+                elem.placeholder = i18n[lang][key];
+            }
+        });
+
+        updateModeUI();
+        renderTable();
+        if (cachedInventoryData.length > 0) renderInventoryTable(cachedInventoryData);
+    }
+
+    let mode = "ORDER", currentOrder = "", multiplier = 1, orderItems = {}, merchantList = [], selectedHistoryData = null;
+    let cachedInventoryData = [];
+    let html5QrCode = null, isTorchOn = false, activeCameraDestination = "picking";
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playBeep(freq = 600, duration = 0.1) {
+        try {
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.frequency.value = freq; osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    }
+
+    window.addEventListener("keydown", (e) => {
+        if(e.key === "F1"){ e.preventDefault(); openNewOrderModal(); }
+        if(e.key === "F2"){ e.preventDefault(); promptMultiplier(); }
+        if(e.key === "F12"){ e.preventDefault(); toggleMode(); }
+    });
+
+    async function loadMerchants() {
+        const res = await fetch("/api/merchants");
+        merchantList = await res.json();
+        const opts = merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
+        document.getElementById("selectPickingMerchant").innerHTML = opts;
+        
+        const allLabel = i18n[currentLang].opt_all_merchants;
+        const invOpts = `<option value="">${allLabel}</option>` + merchantList.map(m => `<option value="${m.id}">${m.company_name}</option>`).join("");
+        document.getElementById("filterInvMerchant").innerHTML = invOpts;
+    }
+
+    function initInboundMerchants() {
+        document.getElementById("inboundMerchant").innerHTML = merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
+    }
+
+    async function loadInventoryOperator() {
+        const merchantFilter = document.getElementById("filterInvMerchant").value;
+        let url = "/api/inventory";
+        if (merchantFilter) url += `?merchant_id=${merchantFilter}`;
+
+        const res = await fetch(url);
+        cachedInventoryData = await res.json();
+        renderInventoryTable(cachedInventoryData);
+    }
+
+    function renderInventoryTable(items) {
+        const tbody = document.getElementById("inventoryTableBody");
+        if (items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">${currentLang === 'it' ? 'Nessun articolo corrispondente ai criteri.' : 'No items matching criteria.'}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => `
+            <tr>
+                <td class="fw-bold font-monospace"><span class="badge bg-light text-dark border">${item.bin_location}</span></td>
+                <td class="font-monospace text-primary fw-bold">${item.sku}</td>
+                <td class="font-monospace text-muted">${item.barcode}</td>
+                <td class="fw-semibold">${item.description}</td>
+                <td><span class="badge bg-secondary-subtle text-secondary-emphasis">${item.merchant_name}</span></td>
+                <td class="text-center fw-bold fs-6">${item.on_hand_qty} pcs</td>
+                <td class="text-center">
+                    ${item.on_hand_qty > 20 
+                        ? `<span class="badge bg-success">${i18n[currentLang].avail_in_stock}</span>` 
+                        : (item.on_hand_qty > 0 ? `<span class="badge bg-warning text-dark">${i18n[currentLang].avail_low_stock}</span>` : `<span class="badge bg-danger">${i18n[currentLang].avail_out}</span>`)}
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="openAdjustModal('${item.sku}', ${item.on_hand_qty})">
+                        <i class="bi bi-pencil-square me-1"></i> ${i18n[currentLang].btn_adjust_action}
+                    </button>
+                </td>
+            </tr>
+        `).join("");
+    }
+
+    function filterInventoryTable() {
+        const q = document.getElementById("filterInvText").value.toLowerCase();
+        renderInventoryTable(cachedInventoryData.filter(x => 
+            x.sku.toLowerCase().includes(q) || 
+            x.description.toLowerCase().includes(q) || 
+            x.barcode.includes(q) || 
+            x.bin_location.toLowerCase().includes(q)
+        ));
+    }
+
+    function openAdjustModal(sku, currentStock) {
+        document.getElementById("adjustModalSku").value = sku;
+        document.getElementById("adjustModalQty").value = currentStock;
+        document.getElementById("adjustModalTitle").innerText = `${i18n[currentLang].modal_adjust_title}: ${sku}`;
+        new bootstrap.Modal(document.getElementById("modalAdjustStock")).show();
+    }
+
+    function stepCount(delta) {
+        const input = document.getElementById("adjustModalQty");
+        let val = parseInt(input.value) || 0;
+        if (val + delta >= 0) input.value = val + delta;
+    }
+
+    async function submitAdjustModal() {
+        const sku = document.getElementById("adjustModalSku").value;
+        const qty = parseInt(document.getElementById("adjustModalQty").value);
+        const reason = document.getElementById("adjustModalReason").value;
+
+        if (isNaN(qty) || qty < 0) return;
+
+        const res = await fetch("/api/inventory/adjust", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({sku: sku, new_quantity: qty, reason: reason})
+        });
+
+        if (res.ok) {
+            playBeep(900, 0.15);
+            bootstrap.Modal.getInstance(document.getElementById("modalAdjustStock")).hide();
+            await loadInventoryOperator();
+        } else {
+            alert(currentLang === 'it' ? "Errore durante la rettifica della scorta." : "Error reconciling stock.");
+        }
+    }
+
+    function printInventoryReportOp() {
+        const selElem = document.getElementById("filterInvMerchant");
+        const merchantName = selElem.value ? selElem.selectedOptions[0].text : (currentLang === 'it' ? "Tutti i Mandanti" : "All Merchants");
+        
+        document.getElementById("prnDocTitle").innerText = currentLang === 'it' ? "VERBALE UFFICIALE DI INVENTARIO MERCI" : "OFFICIAL INVENTORY AUDIT REPORT";
+        document.getElementById("prnSubTitle").innerText = currentLang === 'it' ? "Rilevazione e Allineamento Scorte Fisiche" : "Physical Stock Count & Reconciliation";
+        document.getElementById("prnId").innerText = "#INV-" + new Date().toISOString().slice(0,10).replace(/-/g,"");
+        document.getElementById("prnDate").innerText = new Date().toLocaleString();
+        document.getElementById("prnCustomHeader").innerHTML = `
+            <div><b>${currentLang === 'it' ? 'Mandante' : 'Merchant'}:</b> ${merchantName}</div>
+            <div><b>${currentLang === 'it' ? 'Referenze SKU' : 'Active SKUs'}:</b> ${cachedInventoryData.length}</div>
+            <div><b>${currentLang === 'it' ? 'Pezzi a Scaffale' : 'On-Hand Units'}:</b> <b style="color: #15803d;">${cachedInventoryData.reduce((a,c) => a + c.on_hand_qty, 0)} pcs</b></div>
+        `;
+        document.getElementById("prnTableHead").innerHTML = `
+            <tr>
+                <th style="width: 5%; text-align: center;">#</th>
+                <th style="width: 15%;">${i18n[currentLang].th_bin}</th>
+                <th style="width: 20%;">${i18n[currentLang].th_sku}</th>
+                <th style="width: 20%;">${i18n[currentLang].th_barcode}</th>
+                <th style="width: 30%;">${i18n[currentLang].th_desc}</th>
+                <th style="width: 10%; text-align: center;">${i18n[currentLang].th_on_hand}</th>
+            </tr>
+        `;
+        document.getElementById("prnTableBody").innerHTML = cachedInventoryData.map((it, idx) => `
+            <tr>
+                <td style="text-align: center;">${idx+1}</td>
+                <td style="text-align: center; font-weight: bold;">${it.bin_location}</td>
+                <td style="font-family: monospace; font-weight: bold; color: #0284c7;">${it.sku}</td>
+                <td style="font-family: monospace;">${it.barcode}</td>
+                <td>${it.description}</td>
+                <td style="text-align: center; font-weight: bold;">${it.on_hand_qty} pcs</td>
+            </tr>
+        `).join("");
+        window.print();
+    }
+
+    async function openNewOrderModal() {
+        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
+        if(!selMerchant || isNaN(selMerchant)) {
+            alert(currentLang === 'it' ? "Seleziona prima un mandante!" : "Select a merchant account first!");
+            return;
+        }
+
+        const msg = currentLang === 'it' ? "Inserisci il Numero del Documento / DDT:" : "Enter Packing Slip / Order Number:";
+        const ord = prompt(msg);
+        if (!ord || !ord.trim()) return;
+
+        const ordClean = ord.trim();
+        const res = await fetch(`/api/orders/check/${encodeURIComponent(ordClean)}?merchant_id=${selMerchant}`);
+        const check = await res.json();
+
+        if (check.exists) {
+            playBeep(200, 0.4);
+            alert(currentLang === 'it' 
+                ? `Il documento "${ordClean}" risulta già lavorato in data ${check.processed_at}!`
+                : `Order "${ordClean}" was already fulfilled on ${check.processed_at}!`);
+            return;
+        }
+
+        currentOrder = ordClean;
+        document.getElementById("activeOrderNumber").value = currentOrder;
+        orderItems = {};
+        mode = "ORDER";
+        resetMultiplier();
+        updateModeUI();
+        renderTable();
+        document.getElementById("barcodeInput").focus();
+        playBeep(900, 0.1);
+    }
+
+    function clearCurrentOrder() {
+        if (!currentOrder && Object.keys(orderItems).length === 0) return;
+        if (confirm(currentLang === 'it' ? "Sei sicuro di voler azzerare l'ordine attivo?" : "Are you sure you want to clear the active order?")) {
+            currentOrder = "";
+            orderItems = {};
+            document.getElementById("activeOrderNumber").value = "";
+            document.getElementById("btnFinalizeOrder").classList.add("d-none");
+            mode = "ORDER";
+            resetMultiplier();
+            updateModeUI();
+            renderTable();
+            document.getElementById("barcodeInput").focus();
+        }
+    }
+
+    function promptMultiplier() {
+        const msg = currentLang === 'it' ? "Imposta moltiplicatore quantità:" : "Set quantity multiplier:";
+        const val = prompt(msg, multiplier);
+        if(val && !isNaN(val) && parseInt(val) > 0){
+            multiplier = parseInt(val);
+            document.getElementById("multBadge").innerText = multiplier + "x";
+            document.getElementById("multBadge").className = "badge bg-danger d-flex align-items-center px-3 py-2 fs-6";
+            document.getElementById("barcodeInput").focus();
+        }
+    }
+
+    function resetMultiplier() {
+        multiplier = 1;
+        document.getElementById("multBadge").innerText = "1x";
+        document.getElementById("multBadge").className = "badge bg-secondary d-flex align-items-center px-3 py-2 fs-6";
+    }
+
+    function toggleMode() {
+        if (!currentOrder) {
+            alert(currentLang === 'it' ? "Imposta prima un documento con 'Nuovo (F1)'!" : "Open an order with 'New (F1)' first!");
+            return;
+        }
+        mode = (mode === "ORDER") ? "PICKING" : "ORDER";
+        resetMultiplier();
+        updateModeUI();
+        renderTable();
+        document.getElementById("barcodeInput").focus();
+    }
+
+    function updateModeUI() {
+        const btn = document.getElementById("btnToggleMode"), card = document.getElementById("statusCard");
+        if (mode === "ORDER") {
+            btn.innerText = i18n[currentLang].stage_order_btn;
+            btn.className = "btn btn-outline-primary w-100 fw-bold border-2";
+            card.className = "card card-custom p-3 mb-3 mode-order";
+        } else {
+            btn.innerText = i18n[currentLang].stage_picking_btn;
+            btn.className = "btn btn-outline-warning text-dark w-100 fw-bold border-2";
+            card.className = "card card-custom p-3 mb-3 mode-picking";
+        }
+    }
+
+    document.getElementById("barcodeInput").addEventListener("keypress", async (e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        const raw = e.target.value.trim();
+        e.target.value = "";
+        if (!raw || !currentOrder) return;
+
+        let qty = multiplier, code = raw;
+        if(raw.includes("*")) {
+            const p = raw.split("*");
+            if(!isNaN(p[0])) { qty = parseInt(p[0]); code = p[1].trim(); }
+        }
+
+        const res = await fetch("/api/items/resolve", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({code: code})
+        });
+
+        if (!res.ok) { 
+            playBeep(200, 0.3); 
+            alert(currentLang === 'it' ? `Codice [${code}] non trovato nel magazzino.` : `Code [${code}] not found in master data.`);
+            return; 
+        }
+
+        const item = await res.json();
+        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
+
+        if(item.merchant_id !== selMerchant){
+            playBeep(200, 0.4);
+            alert(currentLang === 'it' 
+                ? `L'articolo appartiene a ${item.merchant_name}, non al mandante selezionato!`
+                : `Item belongs to ${item.merchant_name}, not the selected merchant!`);
+            return;
+        }
+
+        const sku = item.sku;
+        if (mode === "ORDER") {
+            if (orderItems[sku]) orderItems[sku].expected_qty += qty;
+            else orderItems[sku] = {barcode: item.barcode, description: item.description, bin_location: item.bin_location, expected_qty: qty, picked_qty: 0};
+            playBeep(800, 0.08);
+        } else {
+            if (!orderItems[sku]) { 
+                playBeep(200, 0.3); 
+                alert(currentLang === 'it' ? "Articolo non presente nella distinta di questo documento!" : "SKU not present in this packing slip!");
+                return; 
+            }
+            if (orderItems[sku].picked_qty + qty > orderItems[sku].expected_qty) { 
+                playBeep(200, 0.3); 
+                alert(currentLang === 'it' ? "Eccedenza: prelevati più pezzi di quelli previsti dal documento!" : "Overpick alert: Picked quantity exceeds expected units!");
+                return; 
+            }
+            orderItems[sku].picked_qty += qty;
+            playBeep(1000, 0.08);
+        }
+
+        resetMultiplier();
+        renderTable();
+        checkCompletion();
+    });
+
+    function renderTable() {
+        const tbody = document.getElementById("orderTableBody");
+        const keys = Object.keys(orderItems);
+        if (keys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">${i18n[currentLang].no_active_order}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = keys.map(sku => {
+            const r = orderItems[sku];
+            const isDone = (mode === "PICKING" && r.picked_qty === r.expected_qty);
+            const isProg = (mode === "PICKING" && r.picked_qty > 0 && !isDone);
+            const rowClass = isDone ? 'row-ok' : (isProg ? 'row-prog' : '');
+            const badgeHtml = mode === "PICKING" 
+                ? (isDone ? `<span class="badge bg-success">${i18n[currentLang].status_done}</span>` : `<span class="badge bg-warning text-dark">${r.picked_qty}/${r.expected_qty}</span>`)
+                : `<span class="badge bg-primary">${i18n[currentLang].status_queued}</span>`;
+
+            return `<tr class="${rowClass}">
+                <td class="font-monospace fw-bold">${r.bin_location}</td>
+                <td class="font-monospace text-primary fw-bold">${sku}</td>
+                <td class="font-monospace text-muted">${r.barcode}</td>
+                <td class="fw-semibold">${r.description}</td>
+                <td class="text-center fw-bold">${r.expected_qty}</td>
+                <td class="text-center fw-bold text-success">${r.picked_qty}</td>
+                <td class="text-center">${badgeHtml}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-danger" onclick="delete orderItems['${sku}']; renderTable(); checkCompletion();" title="Remove">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        }).join("");
+    }
+
+    function checkCompletion() {
+        if (mode !== "PICKING") return;
+        const keys = Object.keys(orderItems);
+        const done = keys.length > 0 && keys.every(k => orderItems[k].picked_qty === orderItems[k].expected_qty);
+        document.getElementById("btnFinalizeOrder").classList.toggle("d-none", !done);
+        if(done) playBeep(1200, 0.2);
+    }
+
+    async function finalizeOrder() {
+        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
+        const itemsList = Object.keys(orderItems).map(sku => ({
+            sku: sku,
+            barcode: orderItems[sku].barcode,
+            description: orderItems[sku].description,
+            bin_location: orderItems[sku].bin_location,
+            expected_qty: orderItems[sku].expected_qty,
+            picked_qty: orderItems[sku].picked_qty
+        }));
+
+        const res = await fetch("/api/orders/fulfill", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({order_number: currentOrder, merchant_id: selMerchant, items: itemsList})
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            preparePrintArea(data.order_id, currentOrder, document.getElementById("selectPickingMerchant").selectedOptions[0].text, data.timestamp, itemsList);
+            window.print();
+
+            currentOrder = "";
+            orderItems = {};
+            document.getElementById("activeOrderNumber").value = "";
+            document.getElementById("btnFinalizeOrder").classList.add("d-none");
+            mode = "ORDER";
+            updateModeUI();
+            renderTable();
+        } else {
+            const err = await res.json();
+            alert(err.detail || (currentLang === 'it' ? "Errore durante l'evasione." : "Error fulfilling order."));
+        }
+    }
+
+    function startCameraScanner() {
+        if (!currentOrder) {
+            alert(currentLang === 'it' ? "Apri prima un ordine con 'Nuovo (F1)'!" : "Open an order with 'New (F1)' first!");
+            return;
+        }
+        activeCameraDestination = "picking";
+        openCameraModal();
+    }
+
+    function startInboundCameraScan() {
+        activeCameraDestination = "inbound";
+        openCameraModal();
+    }
+
+    function openCameraModal() {
+        const modal = new bootstrap.Modal(document.getElementById("cameraModal"));
+        modal.show();
+
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 15, qrbox: { width: 260, height: 160 }, aspectRatio: 1.0, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
+
+        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+        .then(() => checkTorchSupport())
+        .catch(err => {
+            console.error(err);
+            alert(currentLang === 'it' ? "Accesso fotocamera negato o non disponibile." : "Camera access denied or unavailable.");
+            stopCameraScanner();
+        });
+    }
+
+    async function onScanSuccess(decodedText) {
+        playBeep(1100, 0.12);
+        if (activeCameraDestination === "picking") {
+            document.getElementById("barcodeInput").value = decodedText.trim();
+            document.getElementById("barcodeInput").dispatchEvent(new KeyboardEvent('keypress', {'key': 'Enter'}));
+        } else if (activeCameraDestination === "inbound") {
+            document.getElementById("inboundBarcode").value = decodedText.trim();
+            checkExistingBarcode();
+            stopCameraScanner();
+        }
+    }
+
+    function stopCameraScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                html5QrCode.clear();
+                const m = bootstrap.Modal.getInstance(document.getElementById("cameraModal"));
+                if (m) m.hide();
+                document.getElementById("barcodeInput").focus();
+            }).catch(() => {});
+        } else {
+            const m = bootstrap.Modal.getInstance(document.getElementById("cameraModal"));
+            if (m) m.hide();
+            document.getElementById("barcodeInput").focus();
+        }
+    }
+
+    function checkTorchSupport() {
+        try {
+            html5QrCode.getRunningTrackCameraCapabilities().then(capabilities => {
+                if (capabilities.torch) document.getElementById("btnToggleTorch").classList.remove("d-none");
+            });
+        } catch(e) {}
+    }
+
+    function toggleCameraTorch() {
+        isTorchOn = !isTorchOn;
+        html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] });
+    }
+
+    async function checkExistingBarcode() {
+        const bc = document.getElementById("inboundBarcode").value.trim();
+        if(!bc) return;
+        try {
+            const res = await fetch("/api/items/resolve", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({code: bc})
+            });
+            if(res.ok){
+                const it = await res.json();
+                document.getElementById("inboundSku").value = it.sku;
+                document.getElementById("inboundDesc").value = it.description;
+                document.getElementById("inboundLoc").value = it.bin_location;
+                document.getElementById("inboundMerchant").value = it.merchant_id;
+            }
+        } catch(e){}
+    }
+
+    async function submitInbound() {
+        const payload = {
+            merchant_id: parseInt(document.getElementById("inboundMerchant").value),
+            barcode: document.getElementById("inboundBarcode").value.trim(),
+            sku: document.getElementById("inboundSku").value.trim(),
+            description: document.getElementById("inboundDesc").value.trim(),
+            bin_location: document.getElementById("inboundLoc").value.trim(),
+            quantity: parseInt(document.getElementById("inboundQty").value),
+            doc_reference: document.getElementById("inboundDocRef").value.trim() || "INBOUND-RECEIPT"
+        };
+
+        if(!payload.barcode || !payload.sku || !payload.description || !payload.bin_location || isNaN(payload.quantity)){
+            alert(currentLang === 'it' ? "Compila tutti i campi obbligatori!" : "All fields are required!");
+            return;
+        }
+
+        const res = await fetch("/api/inbound/receive", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+        });
+
+        if(res.ok){
+            playBeep(900, 0.15);
+            const tb = document.getElementById("inboundHistoryBody");
+            if(tb.innerHTML.includes(i18n[currentLang].inbound_empty) || tb.innerHTML.includes("Nessun carico") || tb.innerHTML.includes("No inbound")) tb.innerHTML = "";
+            tb.innerHTML = `<tr>
+                <td class="font-monospace fw-bold text-primary">${payload.sku}</td>
+                <td class="font-monospace text-muted">${payload.barcode}</td>
+                <td>${payload.description}</td>
+                <td><span class="badge bg-light text-dark border">${payload.bin_location}</span></td>
+                <td class="text-center fw-bold text-success">+${payload.quantity} pcs</td>
+                <td><span class="badge bg-success">${currentLang === 'it' ? 'Caricato' : 'Received'}</span></td>
+            </tr>` + tb.innerHTML;
+
+            document.getElementById("inboundBarcode").value = "";
+            document.getElementById("inboundSku").value = "";
+            document.getElementById("inboundDesc").value = "";
+            document.getElementById("inboundBarcode").focus();
+        } else {
+            alert(currentLang === 'it' ? "Errore durante la registrazione del carico." : "Error receiving inventory.");
+        }
+    }
+
+    async function loadHistory(showAll = false) {
+        let url = "/api/orders/history", d = document.getElementById("historyDate").value;
+        if(!showAll && d) url += `?date_filter=${d}`;
+        const res = await fetch(url), list = await res.json(), tbody = document.getElementById("historyTableBody");
+        if(list.length === 0){
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">${currentLang === 'it' ? 'Nessuna spedizione trovata.' : 'No dispatch records found.'}</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = list.map(d => `<tr style="cursor:pointer;" onclick="loadDetail(${d.id})">
+            <td>#${d.id}</td>
+            <td class="fw-bold text-primary">${d.order_number}</td>
+            <td>${d.merchant}</td>
+            <td class="small text-muted">${d.processed_at}</td>
+            <td><span class="badge bg-success">${d.total_units} pcs</span></td>
+        </tr>`).join("");
+    }
+
+    async function loadDetail(id) {
+        const res = await fetch(`/api/orders/${id}`);
+        if(!res.ok) return;
+        selectedHistoryData = await res.json();
+        document.getElementById("detailTitle").innerText = `${currentLang === 'it' ? 'Documento' : 'Order'}: ${selectedHistoryData.header.order_number} (${selectedHistoryData.header.merchant})`;
+        document.getElementById("btnPrintHistory").classList.remove("d-none");
+        document.getElementById("historyDetailBody").innerHTML = selectedHistoryData.lines.map(r => `<tr>
+            <td class="font-monospace fw-bold text-primary">${r.sku}</td>
+            <td class="font-monospace text-muted">${r.barcode}</td>
+            <td>${r.description}</td>
+            <td><span class="badge bg-light text-dark border">${r.bin_location}</span></td>
+            <td class="text-center">${r.expected_qty}</td>
+            <td class="text-center fw-bold text-success">${r.picked_qty}</td>
+        </tr>`).join("");
+    }
+
+    function printSelectedHistory() {
+        if(!selectedHistoryData) return;
+        preparePrintArea(selectedHistoryData.header.id, selectedHistoryData.header.order_number, selectedHistoryData.header.merchant, selectedHistoryData.header.processed_at, selectedHistoryData.lines);
+        window.print();
+    }
+
+    function preparePrintArea(id, orderNum, merchantName, dtStr, rows) {
+        document.getElementById("prnDocTitle").innerText = currentLang === 'it' ? "DOCUMENTO DI CONSEGNA / PACKING SLIP" : "OFFICIAL PACKING SLIP & DISPATCH NOTE";
+        document.getElementById("prnSubTitle").innerText = currentLang === 'it' ? "Verbale Ufficiale di Spedizione e Conformità" : "Official Dispatch & Verification Report";
+        document.getElementById("prnId").innerText = "#" + id;
+        document.getElementById("prnDate").innerText = dtStr;
+        document.getElementById("prnMerchantLbl").innerText = currentLang === 'it' ? "Mandante:" : "Merchant:";
+        document.getElementById("prnOrderRefLbl").innerText = currentLang === 'it' ? "Rif. Ordine/DDT:" : "Order Ref:";
+        document.getElementById("prnTotalLbl").innerText = currentLang === 'it' ? "Pezzi Totali:" : "Total Units:";
+        
+        document.getElementById("prnMerchant").innerText = merchantName;
+        document.getElementById("prnOrderNum").innerText = orderNum;
+        document.getElementById("prnQty").innerText = rows.reduce((a, c) => a + c.picked_qty, 0) + " pcs";
+
+        document.getElementById("prnTableHead").innerHTML = `
+            <tr>
+                <th style="width: 5%; text-align: center;">#</th>
+                <th style="width: 20%;">${i18n[currentLang].th_sku}</th>
+                <th style="width: 20%;">${i18n[currentLang].th_barcode}</th>
+                <th style="width: 35%;">${i18n[currentLang].th_desc}</th>
+                <th style="width: 10%; text-align: center;">${i18n[currentLang].th_bin}</th>
+                <th style="width: 10%; text-align: center;">${i18n[currentLang].th_picked}</th>
+            </tr>
+        `;
+        document.getElementById("prnTableBody").innerHTML = rows.map((r, i) => `<tr>
+            <td style="text-align: center;">${ii = i + 1}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #0284c7;">${r.sku}</td>
+            <td style="font-family: monospace;">${r.barcode}</td>
+            <td>${r.description}</td>
+            <td style="text-align: center;">${r.bin_location}</td>
+            <td style="text-align: center; font-weight: bold; color: #15803d;">${r.picked_qty}</td>
+        </tr>`).join("");
+    }
+
+    async function renderMerchantsDirectory() {
+        const res = await fetch("/api/merchants");
+        const list = await res.json();
+        const tb = document.getElementById("merchantsTableBody");
+        if(list.length === 0){
+            tb.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">${currentLang === 'it' ? 'Nessun mandante registrato.' : 'No merchants registered.'}</td></tr>`;
+            return;
+        }
+        tb.innerHTML = list.map(m => `
+            <tr>
+                <td class="text-muted fw-bold">#${m.id}</td>
+                <td class="font-monospace fw-bold text-primary">${m.account_code}</td>
+                <td class="fw-semibold">${m.company_name}</td>
+                <td class="text-center"><span class="badge bg-light text-dark border">${m.sku_count || 0} SKUs</span></td>
+            </tr>
+        `).join("");
+    }
+
+    async function saveNewMerchant() {
+        const code = document.getElementById("newMerchantCode").value.trim().toUpperCase();
+        const name = document.getElementById("newMerchantName").value.trim();
+        const pin = document.getElementById("newMerchantPin").value.trim();
+
+        if(!code || !name || !pin){
+            alert(currentLang === 'it' ? "Tutti i campi sono obbligatori!" : "All fields are required!");
+            return;
+        }
+
+        const res = await fetch("/api/merchants", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({account_code: code, company_name: name, pin: pin})
+        });
+
+        if(res.ok){
+            playBeep(900, 0.15);
+            alert(currentLang === 'it' ? `Mandante '${name}' registrato correttamente!` : `Merchant '${name}' registered successfully!`);
+            document.getElementById("newMerchantCode").value = "";
+            document.getElementById("newMerchantName").value = "";
+            document.getElementById("newMerchantPin").value = "";
+            await loadMerchants();
+            renderMerchantsDirectory();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Error registering merchant.");
+        }
+    }
+
+    document.getElementById("historyDate").value = new Date().toISOString().split('T')[0];
+
+    document.addEventListener("DOMContentLoaded", () => {
+        setLanguage(currentLang);
+        loadMerchants();
+    });
+</script>
+</body>
+</html>

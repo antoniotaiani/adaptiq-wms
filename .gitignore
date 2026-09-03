@@ -1,0 +1,25 @@
+cd ~/Scaricati/Sviluppo/adaptiq-wms
+
+cat << 'EOF' > .gitignore
+# Ambienti virtuali e cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Database locali e file di test
+*.db
+*.sqlite3
+*.dump
+*.sql
+
+# Dati e configurazioni Docker locali
+postgres_data/
+.env
+
+# File di sistema e log
+*.log
+.DS_Store
+EOF
