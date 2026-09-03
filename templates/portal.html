@@ -34,16 +34,22 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
 
+        .brand-logo-nav {
+            height: 38px;
+            max-width: 140px;
+            object-fit: contain;
+        }
+
         .portal-logo-center {
-            max-height: 75px;
-            max-width: 240px;
+            max-height: 80px;
+            max-width: 260px;
             object-fit: contain;
             display: block;
             margin: 0 auto;
         }
 
         .brand-text-fallback {
-            font-size: 1.45rem;
+            font-size: 1.4rem;
             font-weight: 900;
             color: var(--primary-blue);
             letter-spacing: 0.5px;
@@ -52,7 +58,7 @@
 
         .brand-subtext {
             color: #b45309;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 700;
             display: block;
         }
@@ -107,8 +113,10 @@
 
 <header class="header-brand py-2 px-4 mb-4 no-print">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center gap-2">
-            <div>
+        <!-- LOGO BRAND HEADER -->
+        <div class="d-flex align-items-center gap-3">
+            <img src="/static/logo.png" alt="AdaptiQ Logo" class="brand-logo-nav" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+            <div class="border-start ps-3 d-none d-sm-block">
                 <span class="brand-text-fallback">⚡ AdaptiQ WMS</span>
                 <span class="brand-subtext" data-i18n="portal_subtext">Portale Riservato Mandanti</span>
             </div>
@@ -142,7 +150,7 @@
         <div class="col-md-6 col-lg-5">
             <div class="card card-custom p-4 p-md-5">
                 
-                <!-- LOGO CENTRALE DALLA CARTELLA STATIC -->
+                <!-- LOGO CENTRALE NELLA SCHEDA DI LOGIN -->
                 <div class="text-center mb-4">
                     <img src="/static/logo.png" alt="AdaptiQ Logo" class="portal-logo-center mb-3" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
                     <h3 class="fw-bold text-dark mb-1" data-i18n="login_title">Accesso Riservato Mandanti</h3>
@@ -301,7 +309,10 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content card-custom">
             <div class="modal-header border-bottom">
-                <h5 class="modal-title fw-bold" id="modalDdtTitle" data-i18n="modal_detail_title">Dettaglio Spedizione</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <img src="/static/logo.png" alt="Logo" style="height: 24px;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+                    <h5 class="modal-title fw-bold m-0" id="modalDdtTitle" data-i18n="modal_detail_title">Dettaglio Spedizione</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0">
@@ -330,13 +341,16 @@
     </div>
 </div>
 
-<!-- STAMPA INVENTARIO A4 -->
+<!-- STAMPA INVENTARIO A4 CON LOGO UFFICIALE -->
 <div id="printArea">
     <div style="border-bottom: 2px solid #0284c7; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div>
-            <h2 style="color: #0284c7; margin: 0; font-weight: 900;">⚡ AdaptiQ WMS</h2>
-            <div style="font-size: 8.5pt; color: #b45309; font-weight: bold;" id="prnSubTitle">Soluzioni Adattive per la Logistica e il Fulfillment</div>
-            <h4 style="margin: 4px 0 0 0; color: #0f172a;" id="prnDocTitle">VERBALE UFFICIALE DI INVENTARIO MERCI</h4>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <img src="/static/logo.png" alt="AdaptiQ Logo" style="height: 48px; object-fit: contain;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+            <div>
+                <h2 style="color: #0284c7; margin: 0; font-weight: 900;">⚡ AdaptiQ WMS</h2>
+                <div style="font-size: 8.5pt; color: #b45309; font-weight: bold;" id="prnSubTitle">Soluzioni Adattive per la Logistica e il Fulfillment</div>
+                <h4 style="margin: 4px 0 0 0; color: #0f172a;" id="prnDocTitle">VERBALE UFFICIALE DI INVENTARIO MERCI</h4>
+            </div>
         </div>
         <div style="text-align: right; font-size: 8.5pt;">
             <span id="prnMerchantLbl">Mandante:</span> <b id="prnClientName"></b><br>

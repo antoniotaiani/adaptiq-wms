@@ -35,8 +35,14 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.06);
         }
 
+        .brand-logo-nav {
+            height: 40px;
+            max-width: 140px;
+            object-fit: contain;
+        }
+
         .brand-text-fallback {
-            font-size: 1.4rem;
+            font-size: 1.35rem;
             font-weight: 900;
             color: var(--primary-blue);
             letter-spacing: 0.5px;
@@ -46,7 +52,7 @@
 
         .brand-subtext {
             color: #b45309;
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             font-weight: 700;
             display: block;
         }
@@ -117,8 +123,10 @@
 
 <header class="navbar-custom py-2 px-3 mb-3 no-print">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center gap-2">
-            <div>
+        <!-- LOGO BRAND HEADER -->
+        <div class="d-flex align-items-center gap-3">
+            <img src="/static/logo.png" alt="AdaptiQ Logo" class="brand-logo-nav" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+            <div class="border-start ps-3 d-none d-sm-block">
                 <span class="brand-text-fallback">⚡ AdaptiQ WMS</span>
                 <span class="brand-subtext" data-i18n="brand_subtext">Motore di Gestione e Spedizione Merci</span>
             </div>
@@ -483,7 +491,10 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content card-custom">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="adjustModalTitle" data-i18n="modal_adjust_title">Rettifica Giacenza Fisica</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <img src="/static/logo.png" alt="Logo" style="height: 24px;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+                    <h5 class="modal-title fw-bold m-0" id="adjustModalTitle" data-i18n="modal_adjust_title">Rettifica Giacenza Fisica</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -535,13 +546,16 @@
     </div>
 </div>
 
-<!-- AREA STAMPA A4 -->
+<!-- AREA STAMPA A4 CON LOGO UFFICIALE -->
 <div id="printArea">
     <div style="border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div>
-            <h2 style="color: #0284c7; margin: 0; font-weight: 900;">⚡ AdaptiQ WMS</h2>
-            <div style="font-size: 8.5pt; color: #64748b; font-weight: bold;" id="prnSubTitle">Verbale Ufficiale di Spedizione e Conformità</div>
-            <h4 style="margin: 4px 0 0 0; color: #0f172a;" id="prnDocTitle">DOCUMENTO DI CONSEGNA / PACKING SLIP</h4>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <img src="/static/logo.png" alt="AdaptiQ Logo" style="height: 48px; object-fit: contain;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+            <div>
+                <h2 style="color: #0284c7; margin: 0; font-weight: 900;">⚡ AdaptiQ WMS</h2>
+                <div style="font-size: 8.5pt; color: #64748b; font-weight: bold;" id="prnSubTitle">Verbale Ufficiale di Spedizione e Conformità</div>
+                <h4 style="margin: 4px 0 0 0; color: #0f172a;" id="prnDocTitle">DOCUMENTO DI CONSEGNA / PACKING SLIP</h4>
+            </div>
         </div>
         <div style="text-align: right; font-size: 8.5pt;">
             ID Documento: <b id="prnId"></b><br>
@@ -570,7 +584,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // DIZIONARIO LOCALIZZAZIONE DINAMICA (IT / EN)
     const i18n = {
         it: {
             brand_subtext: "Motore di Gestione e Spedizione Merci",
@@ -1360,7 +1373,7 @@
             </tr>
         `;
         document.getElementById("prnTableBody").innerHTML = rows.map((r, i) => `<tr>
-            <td style="text-align: center;">${ii = i + 1}</td>
+            <td style="text-align: center;">${i + 1}</td>
             <td style="font-family: monospace; font-weight: bold; color: #0284c7;">${r.sku}</td>
             <td style="font-family: monospace;">${r.barcode}</td>
             <td>${r.description}</td>
