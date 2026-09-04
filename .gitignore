@@ -1,0 +1,69 @@
+# Ambienti Node / JS / TS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+.next/
+.nuxt/
+
+# Ambienti Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+
+# Variabili d'ambiente e segreti
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Dati persistenti Docker e Database locali
+postgres-data/
+mysql-data/
+sqlite-data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Log e file temporanei
+logs/
+*.log
+tmp/
+temp/
+
+# Editor e IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Output di aggregazione (repomix, dump)
+repomix-output.*
+wms_progetto.txt
+repo.txt

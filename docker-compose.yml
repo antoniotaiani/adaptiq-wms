@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: adaptiq_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: adaptiq_user
+      POSTGRES_PASSWORD: adaptiq_secure_password_2026
+      POSTGRES_DB: adaptiq_wms
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adaptiq_user -d adaptiq_wms"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - adaptiq_net
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: adaptiq_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://adaptiq_user:adaptiq_secure_password_2026@db:5432/adaptiq_wms
+      JWT_SECRET: adaptiq_jwt_dev_secret_key_2026_xyz
+    volumes:
+      - ./app:/app/app
+      - ./templates:/app/templates
+      - ./static:/app/static
+    depends_on:
+      db:
+        condition: service_healthy
+    command: gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+    networks:
+      - adaptiq_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: adaptiq_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+    networks:
+      - adaptiq_net
+
+volumes:
+  postgres_data:
+
+networks:
+  adaptiq_net:
+    driver: bridge
