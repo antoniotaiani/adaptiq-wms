@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Manuale Operativo - AdaptiQ WMS</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 18mm 16mm 18mm 16mm;
+            @bottom-right {
+                content: "Pagina " counter(page);
+                font-size: 8pt;
+                color: #64748b;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            line-height: 1.45;
+            font-size: 9.5pt;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+        }
+
+        /* INTESTAZIONE GRAFICA CON LOGO */
+        .doc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #f59e0b;
+            padding-bottom: 12px;
+            margin-bottom: 18px;
+        }
+
+        .header-logo {
+            height: 48px;
+            object-fit: contain;
+        }
+
+        .header-meta {
+            text-align: right;
+            font-size: 8pt;
+            color: #475569;
+        }
+
+        .header-meta b {
+            color: #0284c7;
+            font-size: 9.5pt;
+        }
+
+        /* TIPOGRAFIA */
+        h1 {
+            font-size: 16pt;
+            color: #0284c7;
+            margin: 0 0 4px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .doc-subtitle {
+            font-size: 10pt;
+            color: #b45309;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        h2 {
+            font-size: 11.5pt;
+            color: #0369a1;
+            border-bottom: 1.5px solid #e2e8f0;
+            padding-bottom: 4px;
+            margin-top: 18px;
+            margin-bottom: 8px;
+            page-break-after: avoid;
+        }
+
+        h3 {
+            font-size: 10pt;
+            color: #0f172a;
+            margin-top: 10px;
+            margin-bottom: 4px;
+            page-break-after: avoid;
+        }
+
+        p {
+            margin: 0 0 6px 0;
+            text-align: justify;
+        }
+
+        /* TABELLE */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0 14px 0;
+            font-size: 8.5pt;
+            page-break-inside: avoid;
+        }
+
+        th {
+            background-color: #0f172a;
+            color: #ffffff;
+            font-weight: 700;
+            text-align: left;
+            padding: 6px 8px;
+            border: 1px solid #0f172a;
+        }
+
+        td {
+            padding: 5px 8px;
+            border: 1px solid #cbd5e1;
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) td {
+            background-color: #f8fafc;
+        }
+
+        /* BLOCCHI DI CODICE E SCHEMI */
+        pre {
+            background-color: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-left: 4px solid #0284c7;
+            padding: 8px 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 7.8pt;
+            line-height: 1.35;
+            margin: 8px 0 12px 0;
+            white-space: pre-wrap;
+            page-break-inside: avoid;
+        }
+
+        /* BADGE E CARD */
+        .badge-inline {
+            background-color: #e2e8f0;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 8pt;
+        }
+
+        .note-box {
+            background-color: #fffbeb;
+            border: 1px solid #fde68a;
+            border-left: 4px solid #f59e0b;
+            padding: 8px 10px;
+            margin: 10px 0;
+            font-size: 8.5pt;
+            border-radius: 4px;
+            page-break-inside: avoid;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body>
+
+<!-- INTESTAZIONE -->
+<header class="doc-header">
+    <img src="static/logo_logistics.jpeg" alt="LOGISTICS Logo" class="header-logo" onerror="this.src='static/logo.png'">
+    <div class="header-meta">
+        <b>AdaptiQ WMS v1.0 Production</b><br>
+        Specifiche Tecniche & Guida all'Uso<br>
+        Data Emissione: 03 Settembre 2026
+    </div>
+</header>
+
+<h1>Manuale Operativo Ufficiale</h1>
+<div class="doc-subtitle">Motore di Gestione e Spedizione Merci per Micro-Logistica Conto Terzi</div>
+
+<!-- SEZIONE 1 -->
+<h2>1. Panoramica del Sistema AdaptiQ</h2>
+<p>
+    <b>AdaptiQ WMS</b> è una piattaforma avanzata e modulare concepita per ottimizzare l'intera catena di evasione merci (Inbound Receiving, Stock Tracking e Outbound Picking). L'architettura è specificamente progettata per centri logistici ad alta rotazione e strutture che offrono stoccaggio e fulfillment per mandanti multipli, assicurando segregazione logica dei dati, scalabilità e auditabilità completa di ogni movimento fisico a scaffale.
+</p>
+
+<!-- SEZIONE 2 -->
+<h2>2. Architettura Tecnica & Stack Infrastrutturale</h2>
+<p>
+    Il sistema opera all'interno di uno stack containerizzato Docker Compose, ottimizzato per garantire elevata disponibilità e transazionalità concorrente esente da anomalie di race condition:
+</p>
+
+<pre>
+[ Browser / Barcode Scanner / Smartphone ]
+                 | HTTP (Port 80 / 443)
+                 v
+[ Nginx Reverse Proxy ] ----> Rate Limiting: 5 req/min su login, 30 req/s globale
+                 |
+                 v WSGI Unix Socket
+[ FastAPI + Gunicorn Engine ] Multi-Worker Uvicorn (4 nodi paralleli)
+                 | - JWT Session Cookies (HttpOnly, SameSite=Lax)
+                 | - Hashing PIN: PBKDF2-HMAC-SHA256 (100.000 iterazioni)
+                 v AsyncPG Connection Pool
+[ PostgreSQL 16 DB Engine ]
+                 | - Advisory Lock (pg_advisory_lock) per migrazioni DDL atomiche
+                 | - Isolamento multi-tenant basato su merchant_id
+</pre>
+
+<!-- SEZIONE 3 -->
+<h2>3. Console Operatore di Banco (Workstation Console)</h2>
+<p>
+    L'interfaccia principale per gli operatori di magazzino è accessibile all'indirizzo radice (<code>/</code>). È progettata per garantire l'uso esclusivo tramite tastiera o lettore barcode industriale, riducendo al minimo l'uso del puntatore del mouse.
+</p>
+
+<h3>3.1 Tasti di Scelta Rapida (Hotkeys)</h3>
+<table>
+    <thead>
+        <tr>
+            <th style="width: 15%;">Tasto</th>
+            <th style="width: 35%;">Funzione</th>
+            <th style="width: 50%;">Descrizione Operativa</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><span class="badge-inline">F1</span></td>
+            <td>Nuovo Documento</td>
+            <td>Apre il prompt per l'acquisizione del DDT o Packing Slip, verificando preventivamente che il numero non sia già stato registrato o evaso.</td>
+        </tr>
+        <tr>
+            <td><span class="badge-inline">F2</span></td>
+            <td>Moltiplicatore Quantità</td>
+            <td>Imposta un moltiplicatore per la scansione massiva (es. lotti omogenei da 10 o 50 colli) evitando scansioni ripetute.</td>
+        </tr>
+        <tr>
+            <td><span class="badge-inline">F12</span></td>
+            <td>Switch Fase Operativa</td>
+            <td>Alterna tra la modalità di carico distinta (<b>ORDER</b>) e la fase di prelievo fisico a scaffale (<b>PICKING</b>).</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>3.2 Flusso Operativo di Picking ed Evasione Spedizione</h3>
+<ol style="margin-top: 4px; padding-left: 20px;">
+    <li><b>Selezione Mandante:</b> Selezionare dall'elenco a discesa il cliente a cui appartiene l'ordine in lavorazione.</li>
+    <li><b>Creazione Ordine (F1):</b> Digitare il codice identificativo univoco del documento (es. <code>DDT-2026/104</code>).</li>
+    <li><b>Caricamento Distinta (Fase ORDER):</b> Scansionare gli SKU dalla bolla di consegna. È consentita la digitazione rapida con prefisso quantità (sintassi: <code>QTA*CODICE</code>, es. <code>5*8001122334455</code>). Il motore blocca automaticamente l'inserimento se il barcode appartiene a un altro mandante.</li>
+    <li><b>Prelievo Fisico a Scaffale (Fase PICKING via F12):</b> L'operatore segue le ubicazioni indicate nella tabella. A ogni articolo prelevato corrisponde una scansione: un beep ad alta frequenza conferma l'avvenuto incremento. Il sistema impedisce categoricamente il sovraprelievo (overpicking).</li>
+    <li><b>Emissione Verbale di Spedizione:</b> Al completamento di tutte le righe, il sistema attiva il pulsante di finalizzazione, registra la transazione con lock atomico, scala le giacenze e avvia la stampa del verbale di conformità A4 con codice a barre.</li>
+</ol>
+
+<div class="note-box">
+    <b>Supporto Scansione Fotografica:</b> Nelle postazioni mobili sprovviste di lettore ottico USB/Bluetooth è possibile premere il pulsante <b>Fotocamera</b> per attivare la telecamera del dispositivo con supporto torcia integrato (tramite libreria WebRTC <i>Html5-QRCode</i>).
+</div>
+
+<div class="page-break"></div>
+
+<!-- SEZIONE 4 -->
+<h2>4. Modulo Inbound (Carico Merci in Ingresso)</h2>
+<p>
+    Il tab <b>2. Ricezione Merci</b> consente la catalogazione rapida dei bancali e colli in arrivo da fornitore:
+</p>
+<ul>
+    <li><b>Riconoscimento Automatico:</b> Inserendo un barcode già presente a catalogo, il sistema compila istantaneamente SKU, Descrizione e Ubicazione Scaffale di destinazione.</li>
+    <li><b>Associazione Mandante:</b> Ogni referenza viene vincolata rigidamente all'account del proprietario.</li>
+    <li><b>Storico Sessione:</b> Ogni carico produce una riga di audit visibile in tempo reale nella tabella di riscontro laterale.</li>
+</ul>
+
+<!-- SEZIONE 5 -->
+<h2>5. Riconciliazione Stock & Inventario Continuo (Cycle Count)</h2>
+<p>
+    Il tab <b>4. Giacenze & Inventario</b> offre una visibilità completa sullo stato dei magazzini fisici con ricerca istantanea (filtraggio asincrono su SKU, EAN, descrizione e corridoio/scaffale):
+</p>
+<table>
+    <thead>
+        <tr>
+            <th>Stato Visivo</th>
+            <th>Soglia Rilevata</th>
+            <th>Azione Richiesta</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><b style="color: #15803d;">Disponibile</b></td>
+            <td>Giacenza &gt; 20 unità</td>
+            <td>Flusso regolare, scorte di sicurezza garantite.</td>
+        </tr>
+        <tr>
+            <td><b style="color: #d97706;">Scorta Bassa</b></td>
+            <td>Tra 1 e 20 unità</td>
+            <td>Richiesta di riordino o notifica preventiva al mandante.</td>
+        </tr>
+        <tr>
+            <td><b style="color: #b91c1c;">Esaurito</b></td>
+            <td>0 unità a scaffale</td>
+            <td>Articolo non prelevabile nei flussi di outbound picking.</td>
+        </tr>
+    </tbody>
+</table>
+<p>
+    Tramite il comando <b>Rettifica</b>, l'operatore autorizzato può modificare la quantità reale specificando obbligatoriamente una causale contabile (<i>Conteggio Periodico</i>, <i>Merce Danneggiata</i>, <i>Rilevazione Eccedenza</i>, <i>Errore Inserimento</i>).
+</p>
+
+<!-- SEZIONE 6 -->
+<h2>6. Portale Mandanti Riservato (Merchant Portal)</h2>
+<p>
+    Accessibile alla rotta <code>/portal</code>, garantisce ai clienti finali la consultazione in sola lettura dei propri stock e dello stato di avanzamento delle spedizioni:
+</p>
+<ul>
+    <li><b>Autenticazione Sicura:</b> Accesso vincolato a Codice Mandante (es. <code>MCH-APEX</code>) e PIN numerico, con token emesso tramite cookie <code>HttpOnly</code> immune da manipolazioni via script client.</li>
+    <li><b>Statistiche in Tempo Reale:</b> Visualizzazione immediata di SKU attivi, volume totale dei colli stoccati e timestamp esatto dell'ultimo movimento.</li>
+    <li><b>Stampa Certificati di Conformità A4:</b> Permette al mandante di stampare la distinta completa di ogni spedizione evasa comprensiva di campi di firma congiunta tra mandante e responsabile della logistica.</li>
+</ul>
+
+<!-- SEZIONE 7 -->
+<h2>7. Architettura di Sicurezza e Procedure di Disaster Recovery</h2>
+
+<h3>7.1 Integrità e Isolamento Transazionale</h3>
+<p>
+    I processi di movimentazione sono isolati a livello transazionale PostgreSQL tramite clausola esplicita <code>SELECT ... FOR UPDATE</code>. Qualora due operatori tentassero di scaricare lo stesso articolo simultaneamente da due terminali differenti, il database serializza le operazioni evitando valori negativi o vendite fantasma (phantom reads).
+</p>
+
+<h3>7.2 Manutenzione e Backup Database</h3>
+<p>
+    Tutte le tabelle, chiavi esterne e dati storici risiedono sul volume persistente <code>postgres_data</code>. Di seguito i comandi da terminale Linux per eseguire il backup a caldo e il ripristino dei dati:
+</p>
+
+<pre>
+# Eseguire un backup completo SQL a caldo:
+docker exec -t adaptiq_db pg_dump -U adaptiq_user adaptiq_wms > backup_adaptiq_$(date +%Y%m%d).sql
+
+# Ripristinare un backup SQL esistente:
+cat backup_adaptiq_YYYYMMDD.sql | docker exec -i adaptiq_db psql -U adaptiq_user -d adaptiq_wms
+
+# Controllo log realtime container:
+docker compose logs -f --tail=30 web
+</pre>
+
+<!-- FOOTER DEL DOCUMENTO -->
+<div style="margin-top: 40px; border-top: 1px solid #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; font-size: 8pt; color: #64748b;">
+    <div>AdaptiQ WMS Engine - Proprietà Riservata LOGISTICS</div>
+    <div>Documento rilasciato ad uso operativo interno</div>
+</div>
+
+</body>
+</html>
