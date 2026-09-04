@@ -30,7 +30,7 @@ async def check_order_exists(order_number: str, merchant_id: Optional[int] = Non
 @router.post("/fulfill")
 async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depends(get_db)):
     if not payload.items:
-        raise HTTPException(status_code=400, detail="Cannot dispatch an empty order.")
+        raise HTTPException(status_code=400, detail="Impossibile evadere un ordine privo di articoli.")
 
     order_num = payload.order_number.strip()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -42,7 +42,7 @@ async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depe
         )
         existing_order = (await db.execute(check_stmt)).first()
         if existing_order:
-            raise HTTPException(status_code=409, detail=f"Order [{order_num}] has already been fulfilled.")
+            raise HTTPException(status_code=409, detail=f"L'ordine [{order_num}] risulta già evaso.")
 
         total_units = sum(i.picked_qty for i in payload.items)
         disp_order = DispatchOrder(
@@ -61,7 +61,34 @@ async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depe
             curr_item = item_res.scalar_one_or_none()
 
             if not curr_item:
-                raise HTTPException(status_code=404, detail=f"SKU {it.sku} no longer exists.")
+                raise HTTPException(status_code=404, detail=f"Lo SKU [{it.sku}] non esiste più nel catalogo.")
+
+            # 1. Validazione quantità minima
+            if it.picked_qty <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Quantità prelevata non valida ({it.picked_qty}) per SKU [{it.sku}]."
+                )
+
+            # 2. Blocco Over-Picking su scorta fisica a scaffale
+            if it.picked_qty > curr_item.on_hand_qty:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Over-picking non consentito per SKU [{it.sku}] (Ubicazione: {curr_item.bin_location}). "
+                        f"Giacenza disponibile: {curr_item.on_hand_qty}, richiesta dal prelievo: {it.picked_qty}."
+                    )
+                )
+
+            # 3. Blocco Over-Picking rispetto all'atteso dell'ordine
+            if it.picked_qty > it.expected_qty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Quantità prelevata ({it.picked_qty}) superiore a quella "
+                        f"prevista dall'ordine ({it.expected_qty}) per SKU [{it.sku}]."
+                    )
+                )
 
             curr_item.on_hand_qty -= it.picked_qty
 
@@ -117,7 +144,7 @@ async def order_detail(order_id: int, db: AsyncSession = Depends(get_db)):
     res_h = await db.execute(stmt_header)
     h = res_h.first()
     if not h:
-        raise HTTPException(status_code=404, detail="Order not found.")
+        raise HTTPException(status_code=404, detail="Ordine non trovato.")
 
     stmt_lines = select(DispatchOrderLine).where(DispatchOrderLine.order_id == order_id)
     res_l = await db.execute(stmt_lines)
