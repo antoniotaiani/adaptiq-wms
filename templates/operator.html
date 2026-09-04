@@ -254,6 +254,7 @@
                                 <th>Codice SKU</th>
                                 <th>Barcode (EAN)</th>
                                 <th>Descrizione Articolo</th>
+                                <th class="text-center">Giacenza a Scaffale</th>
                                 <th class="text-center">Q.tà Prevista (DDT)</th>
                                 <th class="text-center">Q.tà Prelevata</th>
                                 <th class="text-center">Stato Riga</th>
@@ -261,7 +262,7 @@
                             </tr>
                         </thead>
                         <tbody id="orderTableBody">
-                            <tr><td colspan="8" class="text-center text-muted py-4">Nessun documento attivo. Clicca su <b>Nuovo (F1)</b> per iniziare una spedizione.</td></tr>
+                            <tr><td colspan="9" class="text-center text-muted py-4">Nessun documento attivo. Clicca su <b>Nuovo (F1)</b> per iniziare una spedizione.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -979,12 +980,71 @@
         }
     }
 
-    function toggleMode() {
+    // CONVALIDA PREVENTIVA AL PASSAGGIO DA DISTINTA A PICKING (F12)
+    async function toggleMode() {
         if (!currentOrder) {
             alert("Apri prima un documento cliccando su 'Nuovo (F1)'!");
             return;
         }
-        mode = (mode === "ORDER") ? "PICKING" : "ORDER";
+
+        // Se siamo in ORDER e l'operatore vuole passare a PICKING, esegui la verifica preventiva
+        if (mode === "ORDER") {
+            const keys = Object.keys(orderItems);
+            if (keys.length === 0) {
+                alert("Inserisci almeno un articolo nella distinta prima di avviare il prelievo a scaffale!");
+                return;
+            }
+
+            const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
+            const payloadValidate = {
+                order_number: currentOrder,
+                merchant_id: selMerchant,
+                items: keys.map(sku => ({
+                    sku: sku,
+                    expected_qty: orderItems[sku].expected_qty
+                }))
+            };
+
+            try {
+                const res = await fetch("/api/orders/validate-ddt", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payloadValidate)
+                });
+
+                if (!res.ok) {
+                    playBeep(200, 0.4);
+                    const errData = await res.json();
+                    
+                    if (errData.detail && errData.detail.discrepancies) {
+                        let msg = `⚠️ BLOCCO SPEDIZIONE DDT: Disponibilità magazzino insufficiente!\n\n`;
+                        errData.detail.discrepancies.forEach(d => {
+                            if (d.deficit) {
+                                msg += `• [${d.sku}] Richiesti: ${d.requested_qty} | A Scaffale: ${d.available_qty} (Mancano: ${d.deficit} pz)\n`;
+                            } else {
+                                msg += `• [${d.sku}] ${d.error}\n`;
+                            }
+                        });
+                        msg += `\nRettifica le quantità nella distinta o carica la merce in entrata prima di procedere.`;
+                        alert(msg);
+                    } else {
+                        alert(errData.detail || "Errore durante la convalida preventiva del DDT.");
+                    }
+                    return; // Interrompe il passaggio alla fase di prelievo
+                }
+
+                // Esito positivo: stock interamente verificato
+                playBeep(1100, 0.15);
+                mode = "PICKING";
+            } catch(e) {
+                alert("Impossibile contattare il server per la verifica delle giacenze.");
+                return;
+            }
+        } else {
+            // Ritorno da PICKING a ORDER per correzioni manuali
+            mode = "ORDER";
+        }
+
         document.getElementById("scanQtyInput").value = "1";
         updateModeUI();
         renderTable();
@@ -1058,8 +1118,30 @@
 
         const sku = item.sku;
         if (mode === "ORDER") {
-            if (orderItems[sku]) orderItems[sku].expected_qty += qty;
-            else orderItems[sku] = {barcode: item.barcode, description: item.description, bin_location: item.bin_location, expected_qty: qty, picked_qty: 0};
+            const currentExpected = orderItems[sku] ? orderItems[sku].expected_qty : 0;
+            const newTotalExpected = currentExpected + qty;
+
+            // CONTROLLO PREVENTIVO ISTANTANEO IN FASE DI DISTINTA
+            if (newTotalExpected > item.on_hand_qty) {
+                playBeep(200, 0.4);
+                alert(`⚠️ Giacenza insufficiente a magazzino per [${sku}]!\n` +
+                      `Disponibili a scaffale (${item.bin_location}): ${item.on_hand_qty} pz\n` +
+                      `Richiesti dalla distinta: ${newTotalExpected} pz (Mancano: ${newTotalExpected - item.on_hand_qty} pz)`);
+                return;
+            }
+
+            if (orderItems[sku]) {
+                orderItems[sku].expected_qty = newTotalExpected;
+            } else {
+                orderItems[sku] = {
+                    barcode: item.barcode, 
+                    description: item.description, 
+                    bin_location: item.bin_location, 
+                    on_hand_qty: item.on_hand_qty,
+                    expected_qty: qty, 
+                    picked_qty: 0
+                };
+            }
             playBeep(800, 0.08);
         } else {
             if (!orderItems[sku]) { 
@@ -1086,7 +1168,7 @@
         const tbody = document.getElementById("orderTableBody");
         const keys = Object.keys(orderItems);
         if (keys.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">Nessun documento attivo. Clicca su <b>Nuovo (F1)</b> per iniziare una spedizione.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">Nessun documento attivo. Clicca su <b>Nuovo (F1)</b> per iniziare una spedizione.</td></tr>`;
             return;
         }
 
@@ -1104,6 +1186,7 @@
                 <td class="font-monospace text-primary fw-bold">${sku}</td>
                 <td class="font-monospace text-muted">${r.barcode}</td>
                 <td class="fw-semibold">${r.description}</td>
+                <td class="text-center fw-bold text-secondary fs-6">${r.on_hand_qty !== undefined ? r.on_hand_qty : '-'}</td>
                 <td class="text-center fw-bold fs-6">${r.expected_qty}</td>
                 <td class="text-center fw-bold text-success fs-6">${r.picked_qty}</td>
                 <td class="text-center">${badgeHtml}</td>

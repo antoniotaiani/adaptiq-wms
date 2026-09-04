@@ -16,7 +16,7 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy import (
-    Column, Integer, String, ForeignKey, select, update, func, text
+    Column, Integer, String, ForeignKey, select, update, func, text, CheckConstraint
 )
 
 DATABASE_URL = os.getenv(
@@ -45,6 +45,10 @@ class Merchant(Base):
 
 class Item(Base):
     __tablename__ = "items"
+    __table_args__ = (
+        CheckConstraint("on_hand_qty >= 0", name="chk_item_on_hand_qty_non_negative"),
+    )
+
     sku = Column(String(80), primary_key=True, index=True)
     barcode = Column(String(80), unique=True, nullable=False, index=True)
     merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=False)
@@ -461,6 +465,32 @@ async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depe
             if not curr_item:
                 raise HTTPException(status_code=404, detail=f"SKU {it.sku} no longer exists.")
 
+            if it.picked_qty <= 0:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Quantità prelevata non valida ({it.picked_qty}) per SKU [{it.sku}]."
+                )
+
+            # Controllo 1: Blocco Over-Picking su giacenza a scaffale
+            if it.picked_qty > curr_item.on_hand_qty:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Over-picking non consentito per SKU [{it.sku}] (Ubicazione: {curr_item.bin_location}). "
+                        f"Disponibili a scaffale: {curr_item.on_hand_qty}, richiesti dal prelievo: {it.picked_qty}."
+                    )
+                )
+
+            # Controllo 2: Blocco Over-Picking su quantità attesa dall'ordine
+            if it.picked_qty > it.expected_qty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Quantità prelevata ({it.picked_qty}) superiore a quella "
+                        f"attesa dall'ordine ({it.expected_qty}) per SKU [{it.sku}]."
+                    )
+                )
+
             curr_item.on_hand_qty -= it.picked_qty
 
             line = DispatchOrderLine(
@@ -544,14 +574,13 @@ async def merchant_login(cred: MerchantLoginRequest, response: Response, db: Asy
         raise HTTPException(status_code=401, detail="Invalid merchant code or PIN.")
 
     token = create_merchant_token(merchant.id, merchant.account_code)
-    # Imposta cookie HttpOnly cifrato per mitigare attacchi XSS
     response.set_cookie(
         key="adaptiq_token",
         value=token,
         httponly=True,
         max_age=JWT_EXPIRATION_HOURS * 3600,
         samesite="lax",
-        secure=False # Impostare su True in produzione con HTTPS attivo
+        secure=False
     )
     return {"merchant_id": merchant.id, "company_name": merchant.company_name}
 

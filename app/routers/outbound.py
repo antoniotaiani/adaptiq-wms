@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import Item, Merchant, DispatchOrder, DispatchOrderLine, InventoryTransaction
@@ -10,6 +11,100 @@ from app.schemas import DispatchFulfillRequest
 
 router = APIRouter(prefix="/api/orders", tags=["Outbound"])
 
+
+# --- Schemi Pydantic per la Convalida Preventiva DDT ---
+class DDTLineItem(BaseModel):
+    sku: str
+    expected_qty: int
+
+
+class DDTValidationRequest(BaseModel):
+    order_number: str
+    merchant_id: int
+    items: List[DDTLineItem]
+
+
+# --- 1. Endpoint di Convalida Preventiva DDT di Vendita ---
+@router.post("/validate-ddt")
+async def validate_ddt(payload: DDTValidationRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Verifica la disponibilità di magazzino al momento della presentazione del DDT.
+    Blocca la lavorazione se anche solo un articolo risulta insufficiente a scaffale.
+    """
+    if not payload.items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Il DDT presentato non contiene articoli."
+        )
+
+    order_num = payload.order_number.strip()
+
+    # Verifica se l'ordine/DDT è già presente nel registro evasioni
+    check_stmt = select(DispatchOrder.id).where(
+        func.lower(DispatchOrder.order_number) == func.lower(order_num),
+        DispatchOrder.merchant_id == payload.merchant_id
+    )
+    existing_order = (await db.execute(check_stmt)).first()
+    if existing_order:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"DDT/Ordine [{order_num}] già evaso o registrato a sistema."
+        )
+
+    discrepancies = []
+
+    for it in payload.items:
+        if it.expected_qty <= 0:
+            discrepancies.append({
+                "sku": it.sku,
+                "error": "Quantità richiesta non valida (minore o uguale a zero)",
+                "requested_qty": it.expected_qty,
+                "available_qty": 0
+            })
+            continue
+
+        stmt = select(Item).where(
+            Item.sku == it.sku,
+            Item.merchant_id == payload.merchant_id
+        )
+        res = await db.execute(stmt)
+        item = res.scalar_one_or_none()
+
+        if not item:
+            discrepancies.append({
+                "sku": it.sku,
+                "error": "Articolo non censito per questo merchant",
+                "requested_qty": it.expected_qty,
+                "available_qty": 0
+            })
+        elif item.on_hand_qty < it.expected_qty:
+            discrepancies.append({
+                "sku": item.sku,
+                "description": item.description,
+                "bin_location": item.bin_location,
+                "requested_qty": it.expected_qty,
+                "available_qty": item.on_hand_qty,
+                "deficit": it.expected_qty - item.on_hand_qty
+            })
+
+    if discrepancies:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": f"DDT [{order_num}] bloccato: disponibilità a magazzino insufficiente.",
+                "discrepancies": discrepancies
+            }
+        )
+
+    return {
+        "status": "valid",
+        "message": f"DDT [{order_num}] approvato: merce interamente disponibile a scaffale.",
+        "order_number": order_num,
+        "total_lines": len(payload.items)
+    }
+
+
+# --- 2. Endpoint Esistenti di Workflow Outbound ---
 @router.get("/check/{order_number}")
 async def check_order_exists(order_number: str, merchant_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
     ord_clean = order_number.strip()
@@ -26,6 +121,7 @@ async def check_order_exists(order_number: str, merchant_id: Optional[int] = Non
     if row:
         return {"exists": True, "order_id": row[0], "processed_at": row[1], "merchant": row[2]}
     return {"exists": False}
+
 
 @router.post("/fulfill")
 async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depends(get_db)):
@@ -63,14 +159,12 @@ async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depe
             if not curr_item:
                 raise HTTPException(status_code=404, detail=f"Lo SKU [{it.sku}] non esiste più nel catalogo.")
 
-            # 1. Validazione quantità minima
             if it.picked_qty <= 0:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Quantità prelevata non valida ({it.picked_qty}) per SKU [{it.sku}]."
                 )
 
-            # 2. Blocco Over-Picking su scorta fisica a scaffale
             if it.picked_qty > curr_item.on_hand_qty:
                 raise HTTPException(
                     status_code=409,
@@ -80,7 +174,6 @@ async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depe
                     )
                 )
 
-            # 3. Blocco Over-Picking rispetto all'atteso dell'ordine
             if it.picked_qty > it.expected_qty:
                 raise HTTPException(
                     status_code=400,
@@ -114,6 +207,7 @@ async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depe
 
     return {"status": "success", "order_id": disp_order.id, "timestamp": now_str}
 
+
 @router.get("/history")
 async def orders_history(date_filter: Optional[str] = None, db: AsyncSession = Depends(get_db)):
     stmt = (
@@ -133,6 +227,7 @@ async def orders_history(date_filter: Optional[str] = None, db: AsyncSession = D
         {"id": r[0], "order_number": r[1], "merchant": r[2], "processed_at": r[3], "total_units": r[4], "status": r[5]}
         for r in rows
     ]
+
 
 @router.get("/{order_id}")
 async def order_detail(order_id: int, db: AsyncSession = Depends(get_db)):
