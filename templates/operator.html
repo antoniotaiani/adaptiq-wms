@@ -141,7 +141,6 @@
 </header>
 
 <main class="container-fluid px-2 px-md-4 no-print">
-    <!-- TABS NAVIGAZIONE CON FASI CHIARE -->
     <ul class="nav nav-pills gap-2 mb-3" id="opTab" role="tablist">
         <li class="nav-item">
             <button class="nav-link active fw-bold px-3 py-2" id="btn-tab-picking" data-bs-toggle="tab" data-bs-target="#tab-picking">
@@ -171,11 +170,8 @@
     </ul>
 
     <div class="tab-content">
-        <!-- ========================================== -->
-        <!-- TAB 1: USCITA MERCI / PICKING SPEDIZIONE   -->
-        <!-- ========================================== -->
+        <!-- TAB 1: USCITA MERCI / PICKING -->
         <div class="tab-pane fade show active" id="tab-picking">
-            <!-- SCHEDA CONTROLLO ORDINE E FASE -->
             <div class="card card-custom p-3 mb-3" id="statusCard">
                 <div class="row g-2 align-items-end">
                     <div class="col-md-3">
@@ -211,7 +207,6 @@
                 </div>
             </div>
 
-            <!-- BARRA DI SCANSIONE CON CAMPO QUANTITÀ ESPLICITO -->
             <div class="card card-custom p-3 mb-3 border-2 border-primary">
                 <div class="row g-2 align-items-center">
                     <div class="col-md-2 col-sm-4">
@@ -244,7 +239,6 @@
                 </div>
             </div>
 
-            <!-- TABELLA RIGHE ORDINE/SPEDIZIONE -->
             <div class="card card-custom overflow-hidden">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle m-0">
@@ -269,9 +263,7 @@
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- TAB 2: INBOUND / RICEZIONE MERCI DA DDT    -->
-        <!-- ========================================== -->
+        <!-- TAB 2: INBOUND / ENTRATA MERCI -->
         <div class="tab-pane fade" id="tab-inbound">
             <div class="card card-custom p-3 mb-3 border-start border-4 border-success">
                 <div class="row g-3 align-items-end">
@@ -296,9 +288,9 @@
                     <table class="table table-hover align-middle m-0" id="inboundTable">
                         <thead class="table-dark">
                             <tr>
-                                <th style="width: 18%;">Codice SKU Articolo *</th>
-                                <th style="width: 20%;">Codice a Barre (EAN)</th>
-                                <th style="width: 30%;">Descrizione Merce *</th>
+                                <th style="width: 22%;">Codice a Barre (EAN / Rif.) *</th>
+                                <th style="width: 18%;">Codice SKU Interno</th>
+                                <th style="width: 28%;">Descrizione Merce *</th>
                                 <th style="width: 12%;">Ubicazione</th>
                                 <th style="width: 12%;" class="text-center">Quantità Ricevuta *</th>
                                 <th style="width: 8%;" class="text-center">Rimuovi</th>
@@ -309,7 +301,7 @@
                 </div>
                 <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
                     <span class="text-muted small">
-                        <i class="bi bi-info-circle me-1"></i> Se l'articolo è nuovo verrà censito automaticamente nel catalogo con la quantità indicata.
+                        <i class="bi bi-info-circle me-1"></i> Lo SKU interno è generato automaticamente e protetto da scrittura per evitare sovrapposizioni e duplicati.
                     </span>
                     <button class="btn btn-success fw-bold px-4 py-2 shadow" onclick="submitInboundDDT()">
                         <i class="bi bi-box-arrow-in-down me-1"></i> Registra Carico Merci a Sistema
@@ -340,9 +332,7 @@
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- TAB 3: STORICO SPEDIZIONI EVASE            -->
-        <!-- ========================================== -->
+        <!-- TAB 3: STORICO SPEDIZIONI -->
         <div class="tab-pane fade" id="tab-history">
             <div class="card card-custom p-3 mb-3">
                 <div class="row g-2 align-items-center">
@@ -408,9 +398,7 @@
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- TAB 4: GIACENZE & INVENTARIO               -->
-        <!-- ========================================== -->
+        <!-- TAB 4: GIACENZE & INVENTARIO -->
         <div class="tab-pane fade" id="tab-inventory">
             <div class="card card-custom p-3 mb-3">
                 <div class="row g-2 align-items-center justify-content-between">
@@ -459,9 +447,7 @@
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- TAB 5: GESTIONE ANAGRAFICA MANDANTI        -->
-        <!-- ========================================== -->
+        <!-- TAB 5: ANAGRAFICA MANDANTI -->
         <div class="tab-pane fade" id="tab-merchants">
             <div class="row g-3">
                 <div class="col-md-5 col-lg-4">
@@ -610,7 +596,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    let mode = "ORDER"; // "ORDER" = Creazione distinta da DDT, "PICKING" = Prelievo fisico scaffale
+    let mode = "ORDER";
     let currentOrder = "";
     let orderItems = {};
     let merchantList = [];
@@ -618,6 +604,23 @@
     let cachedInventoryData = [];
     let html5QrCode = null, isTorchOn = false, activeCameraDestination = "picking", targetInboundRow = null;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Helper per mostrare sempre messaggi di errore chiari e leggibili
+    function formatApiError(err, fallback = "Si è verificato un errore.") {
+        if (!err) return fallback;
+        if (typeof err === "string") return err;
+        if (typeof err.detail === "string") return err.detail;
+        if (Array.isArray(err.detail)) {
+            return "Errori riscontrati nei dati inseriti:\n" + err.detail.map(d => {
+                const loc = d.loc ? d.loc.slice(1).join(" -> ") : "Campo";
+                return `• [${loc}]: ${d.msg || JSON.stringify(d)}`;
+            }).join("\n");
+        }
+        if (Array.isArray(err.errors)) {
+            return "Errori riscontrati:\n" + err.errors.map(e => `• ${e.message || JSON.stringify(e)}`).join("\n");
+        }
+        return err.message || JSON.stringify(err);
+    }
 
     function playBeep(freq = 600, duration = 0.1) {
         try {
@@ -642,13 +645,17 @@
     }
 
     async function loadMerchants() {
-        const res = await fetch("/api/merchants");
-        merchantList = await res.json();
-        const opts = merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
-        document.getElementById("selectPickingMerchant").innerHTML = opts;
-        
-        const invOpts = `<option value="">-- TUTTI I MANDANTI --</option>` + merchantList.map(m => `<option value="${m.id}">${m.company_name}</option>`).join("");
-        document.getElementById("filterInvMerchant").innerHTML = invOpts;
+        try {
+            const res = await fetch("/api/merchants");
+            merchantList = await res.json();
+            const opts = merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
+            document.getElementById("selectPickingMerchant").innerHTML = opts;
+            
+            const invOpts = `<option value="">-- TUTTI I MANDANTI --</option>` + merchantList.map(m => `<option value="${m.id}">${m.company_name}</option>`).join("");
+            document.getElementById("filterInvMerchant").innerHTML = invOpts;
+        } catch(e) {
+            console.error("Errore caricamento mandanti:", e);
+        }
     }
 
     function initInboundMerchants() {
@@ -665,16 +672,20 @@
 
         tr.innerHTML = `
             <td>
-                <input type="text" class="form-control form-control-sm font-monospace fw-bold text-uppercase row-sku" placeholder="Es. SKU-ALU-01" value="${sku}" onblur="resolveInboundRow(this)" required>
-            </td>
-            <td>
                 <div class="input-group input-group-sm">
-                    <input type="text" class="form-control font-monospace row-barcode" placeholder="Barcode o SKU" value="${barcode}" onblur="resolveInboundRow(this)">
-                    <button class="btn btn-outline-secondary" type="button" onclick="startRowCameraScan(this)" title="Scansiona con fotocamera"><i class="bi bi-camera-fill"></i></button>
+                    <input type="text" class="form-control font-monospace fw-bold row-barcode" 
+                           placeholder="Scansiona Barcode/EAN *" value="${barcode}" onblur="resolveInboundBarcode(this)" required>
+                    <button class="btn btn-outline-secondary" type="button" onclick="startRowCameraScan(this)" title="Scansiona con fotocamera">
+                        <i class="bi bi-camera-fill"></i>
+                    </button>
                 </div>
             </td>
             <td>
-                <input type="text" class="form-control form-control-sm row-desc" placeholder="Descrizione prodotto" value="${desc}" required>
+                <input type="text" class="form-control form-control-sm font-monospace text-muted bg-light border-secondary-subtle row-sku" 
+                       placeholder="[Auto-generato]" value="${sku}" readonly tabindex="-1" title="Lo SKU viene assegnato automaticamente dal server in sequenza">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm row-desc" placeholder="Descrizione prodotto *" value="${desc}" required>
             </td>
             <td>
                 <input type="text" class="form-control form-control-sm font-monospace text-uppercase row-bin" placeholder="Es. A-01-01" value="${bin}">
@@ -687,7 +698,7 @@
             </td>
         `;
         tbody.appendChild(tr);
-        tr.querySelector(".row-sku").focus();
+        tr.querySelector(".row-barcode").focus();
     }
 
     function removeInboundRow(btn) {
@@ -703,10 +714,17 @@
         }
     }
 
-    async function resolveInboundRow(inputElem) {
+    async function resolveInboundBarcode(inputElem) {
         const row = inputElem.closest("tr");
         const val = inputElem.value.trim();
         if(!val) return;
+
+        const merchantSelect = document.getElementById("inboundMerchant");
+        const merchantId = parseInt(merchantSelect.value);
+        if(!merchantId || isNaN(merchantId)) {
+            alert("Seleziona prima il mandante proprietario della merce.");
+            return;
+        }
 
         try {
             const res = await fetch("/api/items/resolve", {
@@ -714,15 +732,22 @@
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({code: val})
             });
+
             if(res.ok) {
                 const item = await res.json();
-                row.querySelector(".row-sku").value = item.sku;
-                row.querySelector(".row-barcode").value = item.barcode;
-                row.querySelector(".row-desc").value = item.description;
-                row.querySelector(".row-bin").value = item.bin_location;
-                playBeep(900, 0.08);
+                if(item.merchant_id === merchantId) {
+                    row.querySelector(".row-sku").value = item.sku;
+                    row.querySelector(".row-desc").value = item.description;
+                    row.querySelector(".row-bin").value = item.bin_location;
+                    playBeep(900, 0.08);
+                    return;
+                }
             }
-        } catch(e) {}
+
+            row.querySelector(".row-sku").value = "";
+        } catch(e) {
+            console.error("Errore risoluzione codice a barre:", e);
+        }
     }
 
     async function submitInboundDDT() {
@@ -742,21 +767,37 @@
         }
 
         const items = [];
+        const seenBarcodes = new Set();
+
         for(let r of rows) {
-            const sku = r.querySelector(".row-sku").value.trim().toUpperCase();
             const barcode = r.querySelector(".row-barcode").value.trim();
+            const sku = r.querySelector(".row-sku").value.trim().toUpperCase();
             const description = r.querySelector(".row-desc").value.trim();
             const bin_location = r.querySelector(".row-bin").value.trim().toUpperCase() || "INBOUND";
             const quantity = parseInt(r.querySelector(".row-qty").value);
 
-            if(!sku || !description || isNaN(quantity) || quantity <= 0) {
-                alert("Completa tutti i campi obbligatori delle righe (SKU, Descrizione, Quantità > 0).");
+            if(!barcode) {
+                alert("Tutte le righe devono avere un Codice a Barre valorizzato.");
+                r.querySelector(".row-barcode").focus();
                 return;
             }
 
+            if(seenBarcodes.has(barcode.toLowerCase())) {
+                alert(`Errore: Barcode [${barcode}] duplicato nel DDT! Unifica le quantità sulla stessa riga.`);
+                r.querySelector(".row-barcode").focus();
+                return;
+            }
+            seenBarcodes.add(barcode.toLowerCase());
+
+            if(!description || isNaN(quantity) || quantity <= 0) {
+                alert("Completa tutti i campi obbligatori delle righe (Descrizione, Quantità > 0).");
+                return;
+            }
+
+            // Inviamo sku come stringa vuota "" se non presente, MAI null per rispettare il validatore Pydantic
             items.push({
-                sku: sku,
-                barcode: barcode || sku,
+                sku: sku || "",
+                barcode: barcode,
                 description: description,
                 bin_location: bin_location,
                 quantity: quantity
@@ -775,6 +816,8 @@
         };
 
         try {
+            console.log("Invio payload DDT a /api/inbound/ddt:", payload);
+
             const res = await fetch("/api/inbound/ddt", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
@@ -792,7 +835,7 @@
                 items.forEach(it => {
                     tb.innerHTML = `<tr>
                         <td class="fw-bold font-monospace text-dark">${docRef}</td>
-                        <td class="font-monospace fw-bold text-primary">${it.sku}</td>
+                        <td class="font-monospace fw-bold text-primary">${it.sku || 'Generato'}</td>
                         <td class="font-monospace text-muted">${it.barcode}</td>
                         <td>${it.description}</td>
                         <td><span class="badge bg-light text-dark border">${it.bin_location}</span></td>
@@ -807,9 +850,11 @@
                 addInboundRow();
             } else {
                 const err = await res.json();
-                alert(err.detail || "Errore durante la registrazione del DDT.");
+                console.error("Dettaglio errore FastAPI /api/inbound/ddt:", err);
+                alert(formatApiError(err, "Errore durante la registrazione del DDT."));
             }
         } catch(e) {
+            console.error("Errore di rete/connessione:", e);
             alert("Errore di connessione durante la registrazione del DDT.");
         }
     }
@@ -819,9 +864,13 @@
         let url = "/api/inventory";
         if (merchantFilter) url += `?merchant_id=${merchantFilter}`;
 
-        const res = await fetch(url);
-        cachedInventoryData = await res.json();
-        renderInventoryTable(cachedInventoryData);
+        try {
+            const res = await fetch(url);
+            cachedInventoryData = await res.json();
+            renderInventoryTable(cachedInventoryData);
+        } catch(e) {
+            console.error("Errore caricamento inventario:", e);
+        }
     }
 
     function renderInventoryTable(items) {
@@ -883,18 +932,23 @@
 
         if (isNaN(qty) || qty < 0) return;
 
-        const res = await fetch("/api/inventory/adjust", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({sku: sku, new_quantity: qty, reason: reason})
-        });
+        try {
+            const res = await fetch("/api/inventory/adjust", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({sku: sku, new_quantity: qty, reason: reason})
+            });
 
-        if (res.ok) {
-            playBeep(900, 0.15);
-            bootstrap.Modal.getInstance(document.getElementById("modalAdjustStock")).hide();
-            await loadInventoryOperator();
-        } else {
-            alert("Errore durante la rettifica della scorta.");
+            if (res.ok) {
+                playBeep(900, 0.15);
+                bootstrap.Modal.getInstance(document.getElementById("modalAdjustStock")).hide();
+                await loadInventoryOperator();
+            } else {
+                const err = await res.json();
+                alert(formatApiError(err, "Errore durante la rettifica della scorta."));
+            }
+        } catch(e) {
+            alert("Errore di connessione durante la rettifica della scorta.");
         }
     }
 
@@ -980,14 +1034,12 @@
         }
     }
 
-    // CONVALIDA PREVENTIVA AL PASSAGGIO DA DISTINTA A PICKING (F12)
     async function toggleMode() {
         if (!currentOrder) {
             alert("Apri prima un documento cliccando su 'Nuovo (F1)'!");
             return;
         }
 
-        // Se siamo in ORDER e l'operatore vuole passare a PICKING, esegui la verifica preventiva
         if (mode === "ORDER") {
             const keys = Object.keys(orderItems);
             if (keys.length === 0) {
@@ -1028,12 +1080,11 @@
                         msg += `\nRettifica le quantità nella distinta o carica la merce in entrata prima di procedere.`;
                         alert(msg);
                     } else {
-                        alert(errData.detail || "Errore durante la convalida preventiva del DDT.");
+                        alert(formatApiError(errData, "Errore durante la convalida preventiva del DDT."));
                     }
-                    return; // Interrompe il passaggio alla fase di prelievo
+                    return;
                 }
 
-                // Esito positivo: stock interamente verificato
                 playBeep(1100, 0.15);
                 mode = "PICKING";
             } catch(e) {
@@ -1041,7 +1092,6 @@
                 return;
             }
         } else {
-            // Ritorno da PICKING a ORDER per correzioni manuali
             mode = "ORDER";
         }
 
@@ -1085,11 +1135,9 @@
             return;
         }
 
-        // Lettura quantità dal campo numerico dedicato
         let qty = parseInt(document.getElementById("scanQtyInput").value) || 1;
         let code = raw;
 
-        // Supporto opzionale per barcode con prefisso moltiplicatore rapido (es. 5*8001122)
         if(raw.includes("*")) {
             const p = raw.split("*");
             if(!isNaN(p[0])) { qty = parseInt(p[0]); code = p[1].trim(); }
@@ -1121,7 +1169,6 @@
             const currentExpected = orderItems[sku] ? orderItems[sku].expected_qty : 0;
             const newTotalExpected = currentExpected + qty;
 
-            // CONTROLLO PREVENTIVO ISTANTANEO IN FASE DI DISTINTA
             if (newTotalExpected > item.on_hand_qty) {
                 playBeep(200, 0.4);
                 alert(`⚠️ Giacenza insufficiente a magazzino per [${sku}]!\n` +
@@ -1158,7 +1205,6 @@
             playBeep(1000, 0.08);
         }
 
-        // Ripristina la quantità di scansione a 1
         document.getElementById("scanQtyInput").value = "1";
         renderTable();
         checkCompletion();
@@ -1218,27 +1264,31 @@
             picked_qty: orderItems[sku].picked_qty
         }));
 
-        const res = await fetch("/api/orders/fulfill", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({order_number: currentOrder, merchant_id: selMerchant, items: itemsList})
-        });
+        try {
+            const res = await fetch("/api/orders/fulfill", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({order_number: currentOrder, merchant_id: selMerchant, items: itemsList})
+            });
 
-        if (res.ok) {
-            const data = await res.json();
-            preparePrintArea(data.order_id, currentOrder, document.getElementById("selectPickingMerchant").selectedOptions[0].text, data.timestamp, itemsList);
-            window.print();
+            if (res.ok) {
+                const data = await res.json();
+                preparePrintArea(data.order_id, currentOrder, document.getElementById("selectPickingMerchant").selectedOptions[0].text, data.timestamp, itemsList);
+                window.print();
 
-            currentOrder = "";
-            orderItems = {};
-            document.getElementById("activeOrderNumber").value = "";
-            document.getElementById("btnFinalizeOrder").classList.add("d-none");
-            mode = "ORDER";
-            updateModeUI();
-            renderTable();
-        } else {
-            const err = await res.json();
-            alert(err.detail || "Errore durante l'evasione della spedizione.");
+                currentOrder = "";
+                orderItems = {};
+                document.getElementById("activeOrderNumber").value = "";
+                document.getElementById("btnFinalizeOrder").classList.add("d-none");
+                mode = "ORDER";
+                updateModeUI();
+                renderTable();
+            } else {
+                const err = await res.json();
+                alert(formatApiError(err, "Errore durante l'evasione della spedizione."));
+            }
+        } catch(e) {
+            alert("Errore di connessione durante l'evasione dell'ordine.");
         }
     }
 
@@ -1281,7 +1331,7 @@
         } else if (activeCameraDestination === "inbound_row" && targetInboundRow) {
             const bcInput = targetInboundRow.querySelector(".row-barcode");
             bcInput.value = decodedText.trim();
-            resolveInboundRow(bcInput);
+            resolveInboundBarcode(bcInput);
             stopCameraScanner();
         }
     }
@@ -1317,34 +1367,42 @@
     async function loadHistory(showAll = false) {
         let url = "/api/orders/history", d = document.getElementById("historyDate").value;
         if(!showAll && d) url += `?date_filter=${d}`;
-        const res = await fetch(url), list = await res.json(), tbody = document.getElementById("historyTableBody");
-        if(list.length === 0){
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Nessuna spedizione trovata per la data selezionata.</td></tr>`;
-            return;
+        try {
+            const res = await fetch(url), list = await res.json(), tbody = document.getElementById("historyTableBody");
+            if(list.length === 0){
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Nessuna spedizione trovata per la data selezionata.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = list.map(d => `<tr style="cursor:pointer;" onclick="loadDetail(${d.id})">
+                <td>#${d.id}</td>
+                <td class="fw-bold text-primary">${d.order_number}</td>
+                <td>${d.merchant}</td>
+                <td class="small text-muted">${d.processed_at}</td>
+                <td><span class="badge bg-success">${d.total_units} pcs</span></td>
+            </tr>`).join("");
+        } catch(e) {
+            console.error("Errore caricamento storico:", e);
         }
-        tbody.innerHTML = list.map(d => `<tr style="cursor:pointer;" onclick="loadDetail(${d.id})">
-            <td>#${d.id}</td>
-            <td class="fw-bold text-primary">${d.order_number}</td>
-            <td>${d.merchant}</td>
-            <td class="small text-muted">${d.processed_at}</td>
-            <td><span class="badge bg-success">${d.total_units} pcs</span></td>
-        </tr>`).join("");
     }
 
     async function loadDetail(id) {
-        const res = await fetch(`/api/orders/${id}`);
-        if(!res.ok) return;
-        selectedHistoryData = await res.json();
-        document.getElementById("detailTitle").innerText = `Spedizione: ${selectedHistoryData.header.order_number} (${selectedHistoryData.header.merchant})`;
-        document.getElementById("btnPrintHistory").classList.remove("d-none");
-        document.getElementById("historyDetailBody").innerHTML = selectedHistoryData.lines.map(r => `<tr>
-            <td class="font-monospace fw-bold text-primary">${r.sku}</td>
-            <td class="font-monospace text-muted">${r.barcode}</td>
-            <td>${r.description}</td>
-            <td><span class="badge bg-light text-dark border">${r.bin_location}</span></td>
-            <td class="text-center">${r.expected_qty}</td>
-            <td class="text-center fw-bold text-success">${r.picked_qty}</td>
-        </tr>`).join("");
+        try {
+            const res = await fetch(`/api/orders/${id}`);
+            if(!res.ok) return;
+            selectedHistoryData = await res.json();
+            document.getElementById("detailTitle").innerText = `Spedizione: ${selectedHistoryData.header.order_number} (${selectedHistoryData.header.merchant})`;
+            document.getElementById("btnPrintHistory").classList.remove("d-none");
+            document.getElementById("historyDetailBody").innerHTML = selectedHistoryData.lines.map(r => `<tr>
+                <td class="font-monospace fw-bold text-primary">${r.sku}</td>
+                <td class="font-monospace text-muted">${r.barcode}</td>
+                <td>${r.description}</td>
+                <td><span class="badge bg-light text-dark border">${r.bin_location}</span></td>
+                <td class="text-center">${r.expected_qty}</td>
+                <td class="text-center fw-bold text-success">${r.picked_qty}</td>
+            </tr>`).join("");
+        } catch(e) {
+            console.error("Errore dettaglio ordine:", e);
+        }
     }
 
     function printSelectedHistory() {
@@ -1383,21 +1441,25 @@
     }
 
     async function renderMerchantsDirectory() {
-        const res = await fetch("/api/merchants");
-        const list = await res.json();
-        const tb = document.getElementById("merchantsTableBody");
-        if(list.length === 0){
-            tb.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">Nessun mandante attivo registrato.</td></tr>`;
-            return;
+        try {
+            const res = await fetch("/api/merchants");
+            const list = await res.json();
+            const tb = document.getElementById("merchantsTableBody");
+            if(list.length === 0){
+                tb.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">Nessun mandante attivo registrato.</td></tr>`;
+                return;
+            }
+            tb.innerHTML = list.map(m => `
+                <tr>
+                    <td class="text-muted fw-bold">#${m.id}</td>
+                    <td class="font-monospace fw-bold text-primary">${m.account_code}</td>
+                    <td class="fw-semibold">${m.company_name}</td>
+                    <td class="text-center"><span class="badge bg-light text-dark border">${m.sku_count || 0} Referenze</span></td>
+                </tr>
+            `).join("");
+        } catch(e) {
+            console.error("Errore caricamento rubrica mandanti:", e);
         }
-        tb.innerHTML = list.map(m => `
-            <tr>
-                <td class="text-muted fw-bold">#${m.id}</td>
-                <td class="font-monospace fw-bold text-primary">${m.account_code}</td>
-                <td class="fw-semibold">${m.company_name}</td>
-                <td class="text-center"><span class="badge bg-light text-dark border">${m.sku_count || 0} Referenze</span></td>
-            </tr>
-        `).join("");
     }
 
     async function saveNewMerchant() {
@@ -1410,23 +1472,27 @@
             return;
         }
 
-        const res = await fetch("/api/merchants", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({account_code: code, company_name: name, pin: pin})
-        });
+        try {
+            const res = await fetch("/api/merchants", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({account_code: code, company_name: name, pin: pin})
+            });
 
-        if(res.ok){
-            playBeep(900, 0.15);
-            alert(`Mandante '${name}' registrato e attivato con successo!`);
-            document.getElementById("newMerchantCode").value = "";
-            document.getElementById("newMerchantName").value = "";
-            document.getElementById("newMerchantPin").value = "";
-            await loadMerchants();
-            renderMerchantsDirectory();
-        } else {
-            const err = await res.json();
-            alert(err.detail || "Errore durante la registrazione del mandante.");
+            if(res.ok){
+                playBeep(900, 0.15);
+                alert(`Mandante '${name}' registrato e attivato con successo!`);
+                document.getElementById("newMerchantCode").value = "";
+                document.getElementById("newMerchantName").value = "";
+                document.getElementById("newMerchantPin").value = "";
+                await loadMerchants();
+                renderMerchantsDirectory();
+            } else {
+                const err = await res.json();
+                alert(formatApiError(err, "Errore durante la registrazione del mandante."));
+            }
+        } catch(e) {
+            alert("Errore di connessione durante la registrazione del mandante.");
         }
     }
 

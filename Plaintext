@@ -1,0 +1,35 @@
+┌─────────────────────────┐             ┌─────────────────────────┐
+  │        merchants        │ 1         * │          items          │
+  ├─────────────────────────┤─────────────┼─────────────────────────┤
+  │ id (PK)                 │             │ sku (PK)                │
+  │ account_code (UQ)       │             │ barcode (UQ)            │
+  │ company_name            │             │ merchant_id (FK)        │
+  │ pin_hash                │             │ description             │
+  └─────────────────────────┘             │ bin_location            │
+               │ 1                        │ on_hand_qty >= 0 (CHK)  │
+               │                          └─────────────────────────┘
+               │ 1                                     │ 1
+               ▼ *                                     ▼ *
+  ┌─────────────────────────┐             ┌─────────────────────────┐
+  │     dispatch_orders     │ 1         * │ inventory_transactions  │
+  ├─────────────────────────┤─────────────┼─────────────────────────┤
+  │ id (PK)                 │             │ id (PK)                 │
+  │ merchant_id (FK) ──┐ UQ │             │ sku (FK)                │
+  │ order_number       │    │             │ timestamp               │
+  │ processed_at            │             │ transaction_type        │
+  │ status                  │             │ quantity != 0 (CHK)     │
+  │ total_units >= 0 (CHK)  │             │ doc_reference           │
+  └─────────────────────────┘             └─────────────────────────┘
+               │ 1
+               │
+               ▼ *
+  ┌─────────────────────────┐
+  │  dispatch_order_lines   │
+  ├─────────────────────────┤
+  │ id (PK)                 │
+  │ order_id (FK)           │
+  │ sku, barcode, desc, bin │
+  │ expected_qty > 0 (CHK)  │
+  │ picked_qty >= 0  (CHK)  │
+  │ picked_qty <= expected  │
+  └─────────────────────────┘
