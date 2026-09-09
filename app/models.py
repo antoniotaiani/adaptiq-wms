@@ -19,7 +19,6 @@ class Item(Base):
     __tablename__ = "items"
 
     sku = Column(String(80), primary_key=True, index=True)
-    # Rimosso unique=True per consentire lo stesso barcode a mandanti differenti
     barcode = Column(String(80), nullable=False, index=True)
     merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=False)
     description = Column(String(255), nullable=False)
@@ -28,7 +27,6 @@ class Item(Base):
 
     merchant = relationship("Merchant", back_populates="items")
 
-    # Vincolo univoco internazionale allineato a PostgreSQL
     __table_args__ = (
         UniqueConstraint("merchant_id", "barcode", name="uq_items_merchant_barcode"),
     )

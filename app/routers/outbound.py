@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime
@@ -209,7 +209,19 @@ async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depe
 
 
 @router.get("/history")
-async def orders_history(date_filter: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def orders_history(
+    date_filter: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    merchant_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Restituisce l'archivio spedizioni evase con supporto a:
+    - Filtro per singolo Mandante
+    - Filtro range temporale 'Dal - Al' (date_from / date_to)
+    - Retrocompatibilità con filtro a data singola (date_filter)
+    """
     stmt = (
         select(
             DispatchOrder.id, DispatchOrder.order_number, Merchant.company_name,
@@ -217,8 +229,22 @@ async def orders_history(date_filter: Optional[str] = None, db: AsyncSession = D
         )
         .join(Merchant, DispatchOrder.merchant_id == Merchant.id)
     )
-    if date_filter:
-        stmt = stmt.where(DispatchOrder.processed_at.like(f"{date_filter}%"))
+
+    # 1. Filtro Mandante
+    if merchant_id:
+        stmt = stmt.where(DispatchOrder.merchant_id == merchant_id)
+
+    # 2. Filtro per Range Temporale (Dal / Al)
+    if date_from and date_from.strip():
+        stmt = stmt.where(DispatchOrder.processed_at >= f"{date_from.strip()} 00:00:00")
+
+    if date_to and date_to.strip():
+        stmt = stmt.where(DispatchOrder.processed_at <= f"{date_to.strip()} 23:59:59")
+
+    # 3. Retrocompatibilità con data singola se presente
+    if date_filter and not (date_from or date_to):
+        stmt = stmt.where(DispatchOrder.processed_at.like(f"{date_filter.strip()}%"))
+
     stmt = stmt.order_by(DispatchOrder.id.desc())
 
     res = await db.execute(stmt)

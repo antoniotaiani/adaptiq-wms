@@ -15,6 +15,8 @@
             --accent-amber-hover: #d97706;
             --surface-bg: #f8fafc;
             --text-main: #0f172a;
+            --chocolate-brown: #78350f;
+            --chocolate-brown-hover: #92400e;
         }
 
         body {
@@ -86,6 +88,21 @@
         }
         .btn-brand-amber:hover { background-color: var(--accent-amber-hover); color: #000000; }
 
+        .nav-link-chocolate {
+            color: var(--chocolate-brown) !important;
+            border: 1.5px solid var(--chocolate-brown) !important;
+            background-color: #fffbeb !important;
+        }
+        .nav-link-chocolate:hover {
+            background-color: #fef3c7 !important;
+            color: var(--chocolate-brown-hover) !important;
+        }
+        .nav-link-chocolate.active {
+            background-color: var(--chocolate-brown) !important;
+            color: #ffffff !important;
+            border-color: var(--chocolate-brown) !important;
+        }
+
         .mode-order {
             background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%) !important;
             border: 2px solid var(--primary-blue) !important;
@@ -143,22 +160,22 @@
 <main class="container-fluid px-2 px-md-4 no-print">
     <ul class="nav nav-pills gap-2 mb-3" id="opTab" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active fw-bold px-3 py-2" id="btn-tab-picking" data-bs-toggle="tab" data-bs-target="#tab-picking">
+            <button class="nav-link active fw-bold px-3 py-2" id="btn-tab-picking" data-bs-toggle="tab" data-bs-target="#tab-picking" onclick="onTabSwitch('picking')">
                 <i class="bi bi-box-arrow-up-right me-1"></i> FASE 1: Uscita Merci & Spedizione
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-inbound" data-bs-toggle="tab" data-bs-target="#tab-inbound" onclick="initInboundMerchants()">
+            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-inbound" data-bs-toggle="tab" data-bs-target="#tab-inbound" onclick="onTabSwitch('inbound')">
                 <i class="bi bi-box-arrow-in-down me-1"></i> FASE 2: Entrata Merci & Ricezione DDT
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-history" data-bs-toggle="tab" data-bs-target="#tab-history" onclick="loadHistory()">
+            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-history" data-bs-toggle="tab" data-bs-target="#tab-history" onclick="onTabSwitch('history')">
                 <i class="bi bi-clock-history me-1"></i> FASE 3: Archivio Spedizioni Evase
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold px-3 py-2 text-success border border-success-subtle" id="btn-tab-inventory" data-bs-toggle="tab" data-bs-target="#tab-inventory" onclick="loadInventoryOperator()">
+            <button class="nav-link nav-link-chocolate fw-bold px-3 py-2 shadow-sm" id="btn-tab-inventory" data-bs-toggle="tab" data-bs-target="#tab-inventory" onclick="onTabSwitch('inventory')">
                 <i class="bi bi-boxes me-1"></i> FASE 4: Giacenze & Rettifica Inventario
             </button>
         </li>
@@ -175,7 +192,7 @@
             <div class="card card-custom p-3 mb-3" id="statusCard">
                 <div class="row g-2 align-items-end">
                     <div class="col-md-3">
-                        <label for="selectPickingMerchant" class="form-label small fw-bold text-muted">1. Seleziona Mandante / Committente</label>
+                        <label for="selectPickingMerchant" class="form-label small fw-bold text-muted">1. Seleziona Mandante / Committente *</label>
                         <select id="selectPickingMerchant" class="form-select fw-bold border-2"></select>
                     </div>
                     <div class="col-md-3">
@@ -185,20 +202,23 @@
                             <button class="btn btn-brand-primary" onclick="openNewOrderModal()" title="Crea un nuovo documento da evadere">
                                 <i class="bi bi-file-earmark-plus me-1"></i> Nuovo (F1)
                             </button>
-                            <button class="btn btn-outline-danger" title="Azzera e chiudi il documento aperto" onclick="clearCurrentOrder()">
-                                <i class="bi bi-trash"></i>
-                            </button>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-muted">3. Cambia Fase Operativa Documento</label>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-muted">3. Fase Documento</label>
                         <button id="btnToggleMode" class="btn w-100 fw-bold border-2" onclick="toggleMode()">
                             FASE: DISTINTA DDT (F12)
                         </button>
                     </div>
-                    <div class="col-md-3 text-end">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-danger">Reset Completo</label>
+                        <button class="btn btn-outline-danger w-100 fw-bold border-2" onclick="resetPickingCompletely()" title="Annulla tutto l'ordine e ricomincia da zero">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Annulla Tutto
+                        </button>
+                    </div>
+                    <div class="col-md-2 text-end">
                         <button id="btnFinalizeOrder" class="btn btn-success fw-bold d-none w-100 py-2 shadow" onclick="finalizeOrder()">
-                            <i class="bi bi-printer me-1"></i> Finalizza Spedizione & Stampa A4
+                            <i class="bi bi-printer me-1"></i> Finalizza Spedizione
                         </button>
                     </div>
                 </div>
@@ -332,18 +352,28 @@
             </div>
         </div>
 
-        <!-- TAB 3: STORICO SPEDIZIONI -->
+        <!-- TAB 3: STORICO SPEDIZIONI CON FILTRO RANGE TEMPORALE -->
         <div class="tab-pane fade" id="tab-history">
             <div class="card card-custom p-3 mb-3">
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label for="historyDate" class="form-label m-0 fw-bold">Filtra Spedizioni per Data:</label></div>
-                    <div class="col-auto"><input type="date" id="historyDate" class="form-control form-control-sm"></div>
-                    <div class="col-auto">
-                        <button class="btn btn-sm btn-brand-primary fw-bold" onclick="loadHistory(false)">
-                            <i class="bi bi-funnel me-1"></i> Applica Filtro
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label for="historyMerchant" class="form-label m-0 small fw-bold">1. Filtra Mandante:</label>
+                        <select id="historyMerchant" class="form-select form-select-sm fw-bold" onchange="loadHistory(false)"></select>
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label for="historyDateFrom" class="form-label m-0 small fw-bold">2. Dal (Data Inizio):</label>
+                        <input type="date" id="historyDateFrom" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label for="historyDateTo" class="form-label m-0 small fw-bold">3. Al (Data Fine):</label>
+                        <input type="date" id="historyDateTo" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-5 d-flex gap-2 align-items-end mt-2 mt-md-0">
+                        <button class="btn btn-sm btn-brand-primary fw-bold flex-fill" onclick="loadHistory(false)">
+                            <i class="bi bi-funnel me-1"></i> Filtra Archivio
                         </button>
-                        <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadHistory(true)">
-                            <i class="bi bi-list-ul me-1"></i> Mostra Tutto lo Storico
+                        <button class="btn btn-sm btn-outline-secondary fw-bold flex-fill" onclick="resetHistoryFilters()">
+                            <i class="bi bi-list-ul me-1"></i> Mostra Tutto
                         </button>
                     </div>
                 </div>
@@ -436,7 +466,7 @@
                                 <th>Mandante</th>
                                 <th class="text-center">Giacenza a Sistema</th>
                                 <th class="text-center">Stato Scorta</th>
-                                <th class="text-center">Azione Rettifica</th>
+                                <th class="text-center">Azioni su Referenza</th>
                             </tr>
                         </thead>
                         <tbody id="inventoryTableBody">
@@ -604,6 +634,7 @@
     let cachedInventoryData = [];
     let html5QrCode = null, isTorchOn = false, activeCameraDestination = "picking", targetInboundRow = null;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const DEFAULT_APP_TITLE = "AdaptiQ WMS - Workstation Console";
 
     function formatApiError(err, fallback = "Si è verificato un errore.") {
         if (!err) return fallback;
@@ -647,20 +678,66 @@
         try {
             const res = await fetch("/api/merchants");
             merchantList = await res.json();
-            const opts = merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
-            document.getElementById("selectPickingMerchant").innerHTML = opts;
             
-            const invOpts = `<option value="">-- TUTTI I MANDANTI --</option>` + merchantList.map(m => `<option value="${m.id}">${m.company_name}</option>`).join("");
-            document.getElementById("filterInvMerchant").innerHTML = invOpts;
+            const defaultPlaceholder = `<option value="" selected>-- TUTTI I MANDANTI --</option>`;
+            const merchantOptions = merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
+
+            document.getElementById("selectPickingMerchant").innerHTML = defaultPlaceholder + merchantOptions;
+            document.getElementById("inboundMerchant").innerHTML = defaultPlaceholder + merchantOptions;
+            document.getElementById("historyMerchant").innerHTML = defaultPlaceholder + merchantOptions;
+            document.getElementById("filterInvMerchant").innerHTML = defaultPlaceholder + merchantOptions;
         } catch(e) {
             console.error("Errore caricamento mandanti:", e);
         }
     }
 
+    function onTabSwitch(tabName) {
+        if (tabName === "picking") {
+            if (!currentOrder) {
+                document.getElementById("selectPickingMerchant").value = "";
+            }
+        } else if (tabName === "inbound") {
+            document.getElementById("inboundMerchant").value = "";
+            if (document.getElementById("inboundRowsBody").children.length === 0) {
+                addInboundRow();
+            }
+        } else if (tabName === "history") {
+            document.getElementById("historyMerchant").value = "";
+            document.getElementById("historyDateFrom").value = "";
+            document.getElementById("historyDateTo").value = "";
+            loadHistory(true);
+        } else if (tabName === "inventory") {
+            document.getElementById("filterInvMerchant").value = "";
+            loadInventoryOperator();
+        }
+    }
+
     function initInboundMerchants() {
-        document.getElementById("inboundMerchant").innerHTML = merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
-        if (document.getElementById("inboundRowsBody").children.length === 0) {
-            addInboundRow();
+        onTabSwitch('inbound');
+    }
+
+    function resetPickingCompletely() {
+        if (!currentOrder && Object.keys(orderItems).length === 0 && !document.getElementById("selectPickingMerchant").value) {
+            alert("Nessuna attività in corso da annullare.");
+            return;
+        }
+
+        const confirmMsg = currentOrder 
+            ? `⚠️ Sei sicuro di voler ANNULLARE COMPLETAMENTE l'ordine "${currentOrder}"?\n\nTutte le righe scansionate andranno perse e la postazione verrà azzerata.`
+            : `Vuoi azzerare la postazione di prelievo e deselezionare il mandante?`;
+
+        if (confirm(confirmMsg)) {
+            currentOrder = "";
+            orderItems = {};
+            document.getElementById("selectPickingMerchant").value = "";
+            document.getElementById("activeOrderNumber").value = "";
+            document.getElementById("btnFinalizeOrder").classList.add("d-none");
+            document.getElementById("scanQtyInput").value = "1";
+            mode = "ORDER";
+            updateModeUI();
+            renderTable();
+            playBeep(400, 0.2);
+            alert("Postazione azzerata. Seleziona un mandante e apri un nuovo ordine per iniziare.");
         }
     }
 
@@ -721,12 +798,13 @@
         const merchantSelect = document.getElementById("inboundMerchant");
         const merchantId = parseInt(merchantSelect.value);
         if(!merchantId || isNaN(merchantId)) {
-            alert("Seleziona prima il mandante proprietario della merce.");
+            alert("⚠️ Seleziona prima il mandante proprietario della merce dal menu in alto.");
+            inputElem.value = "";
+            merchantSelect.focus();
             return;
         }
 
         try {
-            // Risoluzione contestualizzata per il mandante selezionato
             const res = await fetch("/api/items/resolve", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
@@ -750,7 +828,6 @@
                     return;
                 }
             } else {
-                // Non presente per questo mandante: verifica se appartiene ad altri
                 const checkOtherRes = await fetch("/api/items/resolve", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
@@ -761,7 +838,7 @@
                     const otherItem = await checkOtherRes.json();
                     playBeep(400, 0.15);
                     const useDesc = confirm(
-                        `ℹ️ Informazione: Il Barcode [${val}] risulta già gestito a magazzino per "${otherItem.merchant_name}".\n\n` +
+                        `ℹ️ Informazione: Il Barcode [${val}] risulta già censito a magazzino per "${otherItem.merchant_name}".\n\n` +
                         `Confermandolo, verrà generato un nuovo SKU esclusivo per il mandante selezionato.\n` +
                         `Vuoi copiare la descrizione "${otherItem.description}"?`
                     );
@@ -783,7 +860,8 @@
         const rows = document.querySelectorAll(".inbound-data-row");
 
         if(!merchantId || isNaN(merchantId)) {
-            alert("Seleziona il mandante proprietario della merce.");
+            alert("⚠️ Seleziona obbligatoriamente il mandante proprietario della merce prima di procedere.");
+            document.getElementById("inboundMerchant").focus();
             return;
         }
 
@@ -887,6 +965,7 @@
 
                 alert(`DDT ${docRef} registrato con successo! ${items.length} articoli caricati a magazzino.`);
                 document.getElementById("inboundDocRef").value = "";
+                document.getElementById("inboundMerchant").value = "";
                 document.getElementById("inboundRowsBody").innerHTML = "";
                 addInboundRow();
             } else {
@@ -906,21 +985,27 @@
 
         try {
             const res = await fetch(url);
+            if (!res.ok) {
+                const err = await res.json();
+                document.getElementById("inventoryTableBody").innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Errore caricamento: ${formatApiError(err)}</td></tr>`;
+                return;
+            }
             cachedInventoryData = await res.json();
             renderInventoryTable(cachedInventoryData);
         } catch(e) {
             console.error("Errore caricamento inventario:", e);
+            document.getElementById("inventoryTableBody").innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Errore di connessione durante il recupero dei dati di inventario.</td></tr>`;
         }
     }
 
     function renderInventoryTable(items) {
         const tbody = document.getElementById("inventoryTableBody");
-        if (items.length === 0) {
+        if (!items || items.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">Nessun articolo corrispondente ai criteri selezionati.</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = items.map(item => `
+        tbody.innerHTML = items.map((item, idx) => `
             <tr>
                 <td class="fw-bold font-monospace"><span class="badge bg-light text-dark border">${item.bin_location}</span></td>
                 <td class="font-monospace text-primary fw-bold">${item.sku}</td>
@@ -934,29 +1019,78 @@
                         : (item.on_hand_qty > 0 ? `<span class="badge bg-warning text-dark">Scorta Bassa</span>` : `<span class="badge bg-danger">Esaurito</span>`)}
                 </td>
                 <td class="text-center">
-                    <button class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="openAdjustModal('${item.sku}', ${item.on_hand_qty})">
-                        <i class="bi bi-pencil-square me-1"></i> Rettifica Scorta
-                    </button>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-warning text-dark fw-bold" onclick="openAdjustModalByIndex(${idx})" title="Rettifica quantità">
+                            <i class="bi bi-pencil-square me-1"></i> Rettifica
+                        </button>
+                        <button class="btn btn-outline-danger fw-bold" onclick="promptRemoveByIndex(${idx})" title="Rimuovi referenza e giacenza da questo mandante">
+                            <i class="bi bi-trash-fill me-1"></i> Cancella Prodotto
+                        </button>
+                    </div>
                 </td>
             </tr>
         `).join("");
     }
 
+    function openAdjustModalByIndex(idx) {
+        const item = cachedInventoryData[idx];
+        if (!item) return;
+        document.getElementById("adjustModalSku").value = item.sku;
+        document.getElementById("adjustModalQty").value = item.on_hand_qty;
+        document.getElementById("adjustModalTitle").innerText = `Rettifica Giacenza: ${item.sku}`;
+        new bootstrap.Modal(document.getElementById("modalAdjustStock")).show();
+    }
+
+    async function promptRemoveByIndex(idx) {
+        const item = cachedInventoryData[idx];
+        if (!item) return;
+
+        const msg = `⚠️ ATTENZIONE: CANCELLAZIONE PRODOTTO DAL MANDANTE ⚠️\n\n` +
+            `Stai per eliminare la referenza ESCLUSIVAMENTE dalla giacenza di:\n` +
+            `🏢 Mandante: ${item.merchant_name}\n\n` +
+            `Dati articolo:\n` +
+            `• SKU Interno: ${item.sku}\n` +
+            `• Barcode: ${item.barcode}\n` +
+            `• Descrizione: ${item.description}\n` +
+            `• Giacenza attuale: ${item.on_hand_qty} pezzi\n\n` +
+            `Questa azione è IRREVERSIBILE e rimuove lo stock caricato per errore a questo committente.\n` +
+            `(Gli altri committenti con lo stesso prodotto non subiranno alcuna modifica).\n\n` +
+            `Vuoi procedere con la cancellazione definitiva?`;
+
+        if (!confirm(msg)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/inventory/merchant-item/${encodeURIComponent(item.sku)}`, {
+                method: "DELETE"
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                playBeep(900, 0.2);
+                alert(data.message || `Referenza [${item.sku}] rimossa con successo.`);
+                await loadInventoryOperator();
+            } else {
+                const err = await res.json();
+                playBeep(200, 0.4);
+                alert(formatApiError(err, "Impossibile cancellare la referenza dal mandante."));
+            }
+        } catch (e) {
+            console.error("Errore cancellazione referenza mandante:", e);
+            alert("Errore di connessione durante la richiesta di cancellazione.");
+        }
+    }
+
     function filterInventoryTable() {
         const q = document.getElementById("filterInvText").value.toLowerCase();
-        renderInventoryTable(cachedInventoryData.filter(x => 
+        const filtered = cachedInventoryData.filter(x => 
             x.sku.toLowerCase().includes(q) || 
             x.description.toLowerCase().includes(q) || 
             x.barcode.includes(q) || 
             x.bin_location.toLowerCase().includes(q)
-        ));
-    }
-
-    function openAdjustModal(sku, currentStock) {
-        document.getElementById("adjustModalSku").value = sku;
-        document.getElementById("adjustModalQty").value = currentStock;
-        document.getElementById("adjustModalTitle").innerText = `Rettifica Giacenza: ${sku}`;
-        new bootstrap.Modal(document.getElementById("modalAdjustStock")).show();
+        );
+        renderInventoryTable(filtered);
     }
 
     function stepCount(delta) {
@@ -1025,13 +1159,21 @@
                 <td style="text-align: center; font-weight: bold;">${it.on_hand_qty} pcs</td>
             </tr>
         `).join("");
+
+        const cleanMch = merchantName.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+        const dateStamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+        document.title = `INVENTARIO_${cleanMch}_${dateStamp}`;
+        
         window.print();
+        
+        setTimeout(() => { document.title = DEFAULT_APP_TITLE; }, 1000);
     }
 
     async function openNewOrderModal() {
         const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
         if(!selMerchant || isNaN(selMerchant)) {
-            alert("Seleziona prima un mandante!");
+            alert("⚠️ Seleziona prima un Mandante dal menu a tendina in alto!");
+            document.getElementById("selectPickingMerchant").focus();
             return;
         }
 
@@ -1060,18 +1202,7 @@
     }
 
     function clearCurrentOrder() {
-        if (!currentOrder && Object.keys(orderItems).length === 0) return;
-        if (confirm("Sei sicuro di voler azzerare e chiudere il documento di spedizione corrente?")) {
-            currentOrder = "";
-            orderItems = {};
-            document.getElementById("activeOrderNumber").value = "";
-            document.getElementById("btnFinalizeOrder").classList.add("d-none");
-            mode = "ORDER";
-            document.getElementById("scanQtyInput").value = "1";
-            updateModeUI();
-            renderTable();
-            document.getElementById("barcodeInput").focus();
-        }
+        resetPickingCompletely();
     }
 
     async function toggleMode() {
@@ -1170,6 +1301,14 @@
         e.target.value = "";
         if (!raw) return;
 
+        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
+        if(!selMerchant || isNaN(selMerchant)) {
+            playBeep(200, 0.4);
+            alert("⚠️ Seleziona prima un Mandante dal menu a tendina in alto prima di scansionare!");
+            document.getElementById("selectPickingMerchant").focus();
+            return;
+        }
+
         if (!currentOrder) {
             alert("Nessun documento attivo. Clicca su 'Nuovo (F1)' prima di iniziare a scansionare.");
             return;
@@ -1183,9 +1322,6 @@
             if(!isNaN(p[0])) { qty = parseInt(p[0]); code = p[1].trim(); }
         }
 
-        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
-
-        // Risoluzione barcode/SKU contestualizzata sul mandante attivo
         const res = await fetch("/api/items/resolve", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
@@ -1299,8 +1435,31 @@
     }
 
     async function finalizeOrder() {
-        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
-        const itemsList = Object.keys(orderItems).map(sku => ({
+        const selSelect = document.getElementById("selectPickingMerchant");
+        const selMerchant = parseInt(selSelect.value);
+        const merchantText = selSelect.options[selSelect.selectedIndex] ? selSelect.options[selSelect.selectedIndex].text : "N/D";
+        
+        const keys = Object.keys(orderItems);
+        const totalPieces = keys.reduce((acc, sku) => acc + orderItems[sku].picked_qty, 0);
+
+        const confirmMsg = 
+            `📦 CONFERMA SPEDIZIONE & SCARICO MAGAZZINO\n\n` +
+            `• Documento / Ordine: ${currentOrder}\n` +
+            `• Mandante: ${merchantText}\n` +
+            `• Referenze distinte: ${keys.length}\n` +
+            `• Pezzi totali da evadere: ${totalPieces} pz\n\n` +
+            `Procedere con la finalizzazione definitiva dell'ordine e la generazione del documento?`;
+
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        const btn = document.getElementById("btnFinalizeOrder");
+        btn.disabled = true;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Elaborazione...`;
+
+        const itemsList = keys.map(sku => ({
             sku: sku,
             barcode: orderItems[sku].barcode,
             description: orderItems[sku].description,
@@ -1318,13 +1477,25 @@
 
             if (res.ok) {
                 const data = await res.json();
-                preparePrintArea(data.order_id, currentOrder, document.getElementById("selectPickingMerchant").selectedOptions[0].text, data.timestamp, itemsList);
+                preparePrintArea(data.order_id, currentOrder, merchantText, data.timestamp, itemsList);
+
+                const cleanMerchant = merchantText.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+                const cleanOrder = currentOrder.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+                const timeStamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+                const uniquePdfName = `DDT_${cleanMerchant}_${cleanOrder}_SPED${data.order_id}_${timeStamp}`;
+
+                document.title = uniquePdfName;
                 window.print();
+
+                setTimeout(() => {
+                    document.title = DEFAULT_APP_TITLE;
+                }, 1000);
 
                 currentOrder = "";
                 orderItems = {};
                 document.getElementById("activeOrderNumber").value = "";
-                document.getElementById("btnFinalizeOrder").classList.add("d-none");
+                document.getElementById("selectPickingMerchant").value = "";
+                btn.classList.add("d-none");
                 mode = "ORDER";
                 updateModeUI();
                 renderTable();
@@ -1334,6 +1505,9 @@
             }
         } catch(e) {
             alert("Errore di connessione durante l'evasione dell'ordine.");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
         }
     }
 
@@ -1410,12 +1584,28 @@
     }
 
     async function loadHistory(showAll = false) {
-        let url = "/api/orders/history", d = document.getElementById("historyDate").value;
-        if(!showAll && d) url += `?date_filter=${d}`;
+        let url = "/api/orders/history";
+        const params = [];
+        const m = document.getElementById("historyMerchant").value;
+        const dFrom = document.getElementById("historyDateFrom").value;
+        const dTo = document.getElementById("historyDateTo").value;
+
+        if (m) params.push(`merchant_id=${encodeURIComponent(m)}`);
+        if (!showAll && dFrom) params.push(`date_from=${encodeURIComponent(dFrom)}`);
+        if (!showAll && dTo) params.push(`date_to=${encodeURIComponent(dTo)}`);
+
+        if (params.length > 0) {
+            url += `?${params.join("&")}`;
+        }
+
         try {
-            const res = await fetch(url), list = await res.json(), tbody = document.getElementById("historyTableBody");
-            if(list.length === 0){
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Nessuna spedizione trovata per la data selezionata.</td></tr>`;
+            const res = await fetch(url);
+            const list = await res.json();
+            const tbody = document.getElementById("historyTableBody");
+            if(!list || list.length === 0){
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Nessuna spedizione trovata per i criteri selezionati.</td></tr>`;
+                document.getElementById("historyDetailBody").innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">Nessuna spedizione selezionata.</td></tr>`;
+                document.getElementById("btnPrintHistory").classList.add("d-none");
                 return;
             }
             tbody.innerHTML = list.map(d => `<tr style="cursor:pointer;" onclick="loadDetail(${d.id})">
@@ -1428,6 +1618,13 @@
         } catch(e) {
             console.error("Errore caricamento storico:", e);
         }
+    }
+
+    function resetHistoryFilters() {
+        document.getElementById("historyMerchant").value = "";
+        document.getElementById("historyDateFrom").value = "";
+        document.getElementById("historyDateTo").value = "";
+        loadHistory(true);
     }
 
     async function loadDetail(id) {
@@ -1453,7 +1650,16 @@
     function printSelectedHistory() {
         if(!selectedHistoryData) return;
         preparePrintArea(selectedHistoryData.header.id, selectedHistoryData.header.order_number, selectedHistoryData.header.merchant, selectedHistoryData.header.processed_at, selectedHistoryData.lines);
+        
+        const cleanMerchant = selectedHistoryData.header.merchant.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+        const cleanOrder = selectedHistoryData.header.order_number.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+        document.title = `RISTAMPA_DDT_${cleanMerchant}_${cleanOrder}_SPED${selectedHistoryData.header.id}`;
+        
         window.print();
+        
+        setTimeout(() => {
+            document.title = DEFAULT_APP_TITLE;
+        }, 1000);
     }
 
     function preparePrintArea(id, orderNum, merchantName, dtStr, rows) {
@@ -1540,8 +1746,6 @@
             alert("Errore di connessione durante la registrazione del mandante.");
         }
     }
-
-    document.getElementById("historyDate").value = new Date().toISOString().split('T')[0];
 
     document.addEventListener("DOMContentLoaded", () => {
         loadMerchants();
