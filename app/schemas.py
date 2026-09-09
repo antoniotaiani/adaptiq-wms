@@ -3,6 +3,15 @@ from typing import List, Optional
 
 
 # ==========================================
+# SCHEMI ARTICOLI & RISOLUZIONE BARCODE
+# ==========================================
+
+class ItemResolveRequest(BaseModel):
+    code: str = Field(..., min_length=1, description="Codice a Barre (EAN) o codice SKU interno")
+    merchant_id: Optional[int] = Field(None, description="ID Mandante per contestualizzare la ricerca se il barcode è condiviso")
+
+
+# ==========================================
 # SCHEMI MANDANTI (routers/merchants.py)
 # ==========================================
 
@@ -31,7 +40,7 @@ class UpdatePinRequest(BaseModel):
 # ==========================================
 
 class InboundDDTItem(BaseModel):
-    sku: Optional[str] = Field(default="", description="SKU interno. Se assente o vuoto, viene calcolato progressivamente.")
+    sku: Optional[str] = Field(default="", description="SKU interno. Se vuoto, viene generato progressivamente")
     barcode: str = Field(..., min_length=1, description="Barcode/EAN univoco dell'articolo")
     description: str = Field(..., min_length=1, description="Descrizione prodotto")
     bin_location: Optional[str] = Field(default="INBOUND", description="Ubicazione scaffale")

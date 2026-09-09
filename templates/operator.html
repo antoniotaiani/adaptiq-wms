@@ -605,7 +605,6 @@
     let html5QrCode = null, isTorchOn = false, activeCameraDestination = "picking", targetInboundRow = null;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Helper per mostrare sempre messaggi di errore chiari e leggibili
     function formatApiError(err, fallback = "Si è verificato un errore.") {
         if (!err) return fallback;
         if (typeof err === "string") return err;
@@ -714,7 +713,7 @@
         }
     }
 
-async function resolveInboundBarcode(inputElem) {
+    async function resolveInboundBarcode(inputElem) {
         const row = inputElem.closest("tr");
         const val = inputElem.value.trim();
         if(!val) return;
@@ -727,10 +726,14 @@ async function resolveInboundBarcode(inputElem) {
         }
 
         try {
+            // Risoluzione contestualizzata per il mandante selezionato
             const res = await fetch("/api/items/resolve", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({code: val})
+                body: JSON.stringify({
+                    code: val,
+                    merchant_id: merchantId
+                })
             });
 
             if(res.ok) {
@@ -745,8 +748,26 @@ async function resolveInboundBarcode(inputElem) {
                     }
                     playBeep(900, 0.08);
                     return;
-                } else {
-                    alert(`Attenzione: Il barcode [${val}] risulta già censito per un altro mandante (${item.merchant_name || 'ID ' + item.merchant_id}).`);
+                }
+            } else {
+                // Non presente per questo mandante: verifica se appartiene ad altri
+                const checkOtherRes = await fetch("/api/items/resolve", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ code: val })
+                });
+
+                if (checkOtherRes.ok) {
+                    const otherItem = await checkOtherRes.json();
+                    playBeep(400, 0.15);
+                    const useDesc = confirm(
+                        `ℹ️ Informazione: Il Barcode [${val}] risulta già gestito a magazzino per "${otherItem.merchant_name}".\n\n` +
+                        `Confermandolo, verrà generato un nuovo SKU esclusivo per il mandante selezionato.\n` +
+                        `Vuoi copiare la descrizione "${otherItem.description}"?`
+                    );
+                    if (useDesc && !row.querySelector(".row-desc").value) {
+                        row.querySelector(".row-desc").value = otherItem.description;
+                    }
                 }
             }
 
@@ -756,7 +777,7 @@ async function resolveInboundBarcode(inputElem) {
         }
     }
 
-    async function submitInboundDDT() {
+    async function submitInboundDDT(forceShared = false) {
         const merchantId = parseInt(document.getElementById("inboundMerchant").value);
         const docRef = document.getElementById("inboundDocRef").value.trim();
         const rows = document.querySelectorAll(".inbound-data-row");
@@ -800,7 +821,6 @@ async function resolveInboundBarcode(inputElem) {
                 return;
             }
 
-            // Inviamo sku come stringa vuota "" se non presente, MAI null per rispettare il validatore Pydantic
             items.push({
                 sku: sku || "",
                 barcode: barcode,
@@ -822,13 +842,28 @@ async function resolveInboundBarcode(inputElem) {
         };
 
         try {
-            console.log("Invio payload DDT a /api/inbound/ddt:", payload);
-
-            const res = await fetch("/api/inbound/ddt", {
+            const url = `/api/inbound/ddt?allow_shared_barcode=${forceShared}`;
+            const res = await fetch(url, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(payload)
             });
+
+            if(res.status === 409) {
+                const conflictData = await res.json();
+                let promptMsg = `⚠️ CONFLITTO BARCODE CON ALTRI MANDANTI:\n\n`;
+                if (conflictData.detail && conflictData.detail.conflicts) {
+                    conflictData.detail.conflicts.forEach(c => {
+                        promptMsg += `• Barcode: ${c.barcode} (${c.description})\n   -> Già gestito per: "${c.other_merchant_name}" (SKU: ${c.other_sku})\n`;
+                    });
+                }
+                promptMsg += `\nVuoi confermare comunque il carico generando un NUOVO SKU dedicato a questo mandante?`;
+
+                if (confirm(promptMsg)) {
+                    await submitInboundDDT(true);
+                }
+                return;
+            }
 
             if(res.ok) {
                 playBeep(900, 0.2);
@@ -856,11 +891,10 @@ async function resolveInboundBarcode(inputElem) {
                 addInboundRow();
             } else {
                 const err = await res.json();
-                console.error("Dettaglio errore FastAPI /api/inbound/ddt:", err);
                 alert(formatApiError(err, "Errore durante la registrazione del DDT."));
             }
         } catch(e) {
-            console.error("Errore di rete/connessione:", e);
+            console.error("Errore di rete:", e);
             alert("Errore di connessione durante la registrazione del DDT.");
         }
     }
@@ -1149,20 +1183,25 @@ async function resolveInboundBarcode(inputElem) {
             if(!isNaN(p[0])) { qty = parseInt(p[0]); code = p[1].trim(); }
         }
 
+        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
+
+        // Risoluzione barcode/SKU contestualizzata sul mandante attivo
         const res = await fetch("/api/items/resolve", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({code: code})
+            body: JSON.stringify({
+                code: code,
+                merchant_id: selMerchant
+            })
         });
 
         if (!res.ok) { 
             playBeep(200, 0.3); 
-            alert(`Codice [${code}] non trovato nel catalogo.`);
+            alert(`Codice [${code}] non trovato nel catalogo per questo mandante.`);
             return; 
         }
 
         const item = await res.json();
-        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
 
         if(item.merchant_id !== selMerchant){
             playBeep(200, 0.4);

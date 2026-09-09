@@ -35,14 +35,18 @@ async def get_next_sku_sequence(prefix: str, db: AsyncSession) -> int:
 
 
 @router.post("/ddt")
-async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Depends(get_db)):
+async def receive_inbound_ddt(
+    payload: InboundDDTRequest,
+    allow_shared_barcode: bool = False,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Elabora il carico merce da DDT:
     - Rifiuta righe con barcode duplicati all'interno dello stesso documento.
-    - Se il barcode esiste già per lo stesso mandante, incrementa la giacenza e aggiorna l'ubicazione.
-    - Se il barcode appartiene a un altro mandante, solleva un errore 400 esplicito.
-    - Se il barcode è nuovo, genera uno SKU sequenziale garantito sia nel DDT che a database.
-    - Registra i movimenti nel ledger di magazzino (InventoryTransaction).
+    - Se il barcode appartiene già al mandante selezionato, incrementa la giacenza.
+    - Se appartiene a un altro mandante e 'allow_shared_barcode' è False, risponde con HTTP 409 Conflict.
+    - Se confermato (allow_shared_barcode=True), crea un nuovo SKU sequenziale per il nuovo mandante.
+    - Registra i movimenti nel ledger di magazzino.
     """
     if not payload.items:
         raise HTTPException(
@@ -73,10 +77,54 @@ async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Dep
                 detail=f"Mandante con ID {payload.merchant_id} non trovato."
             )
 
+        # 2. Controllo preventivo: barcode condivisi con altri committenti
+        if not allow_shared_barcode:
+            conflicts = []
+            for line in payload.items:
+                bc = line.barcode.strip() if line.barcode else ""
+                if not bc:
+                    continue
+
+                # Cerca se già esiste per un altro mandante
+                stmt_other = select(Item, Merchant).join(
+                    Merchant, Item.merchant_id == Merchant.id
+                ).where(
+                    Item.barcode == bc,
+                    Item.merchant_id != payload.merchant_id
+                )
+                res_other = await db.execute(stmt_other)
+                other_owner = res_other.first()
+
+                # Cerca se esiste già per il mandante corrente
+                stmt_self = select(Item).where(
+                    Item.barcode == bc,
+                    Item.merchant_id == payload.merchant_id
+                )
+                res_self = await db.execute(stmt_self)
+                self_item = res_self.scalar_one_or_none()
+
+                # Se appartiene ad un altro e non è ancora registrato per questo mandante
+                if other_owner and not self_item:
+                    item_obj, mch_obj = other_owner
+                    conflicts.append({
+                        "barcode": bc,
+                        "description": line.description,
+                        "other_merchant_name": mch_obj.company_name,
+                        "other_sku": item_obj.sku
+                    })
+
+            if conflicts:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "message": "Uno o più barcode appartengono ad altri committenti.",
+                        "conflicts": conflicts
+                    }
+                )
+
         clean_code = merchant.account_code.replace("MCH-", "").replace(" ", "").upper()
         prefix = f"SKU-{clean_code}-{datetime.now().year}-"
 
-        # Recupera il contatore iniziale massimo effettivo
         current_seq = await get_next_sku_sequence(prefix, db)
         assigned_in_doc = set()
         processed_lines = []
@@ -92,36 +140,26 @@ async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Dep
             bin_loc = line.bin_location.strip().upper() if (line.bin_location and line.bin_location.strip()) else "INBOUND"
             barcode = line.barcode.strip() if (line.barcode and line.barcode.strip()) else ""
 
-            # 2. Ricerca globale per Barcode (indipendentemente dal mandante)
-            # Questo evita la violazione del vincolo UNIQUE ix_items_barcode
+            # Ricerca l'articolo ESCLUSIVAMENTE per il mandante selezionato
             existing_item = None
             if barcode:
-                stmt_bc = select(Item).where(Item.barcode == barcode).with_for_update()
+                stmt_bc = select(Item).where(
+                    Item.barcode == barcode,
+                    Item.merchant_id == payload.merchant_id
+                ).with_for_update()
                 res_bc = await db.execute(stmt_bc)
                 existing_item = res_bc.scalar_one_or_none()
 
-            # 3. Se non trovato per barcode ma è stato passato uno SKU manuale, cerca per SKU
             custom_sku = line.sku.strip().upper() if (line.sku and line.sku.strip()) else ""
             if not existing_item and custom_sku:
-                stmt_sku = select(Item).where(Item.sku == custom_sku).with_for_update()
+                stmt_sku = select(Item).where(
+                    Item.sku == custom_sku,
+                    Item.merchant_id == payload.merchant_id
+                ).with_for_update()
                 res_sku = await db.execute(stmt_sku)
                 existing_item = res_sku.scalar_one_or_none()
 
             if existing_item:
-                # Se l'articolo appartiene a un altro mandante, blocchiamo l'operazione
-                if existing_item.merchant_id != payload.merchant_id:
-                    # Recupera ragione sociale mandante proprietario per un messaggio trasparente
-                    owner_mch = await db.get(Merchant, existing_item.merchant_id)
-                    owner_name = owner_mch.company_name if owner_mch else f"ID #{existing_item.merchant_id}"
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=(
-                            f"Il Barcode [{barcode or existing_item.barcode}] (SKU: {existing_item.sku}) "
-                            f"è già registrato a sistema per un altro mandante: {owner_name}."
-                        )
-                    )
-
-                # Articolo già esistente per questo mandante: aggiorniamo scorta e ubicazione (se fornita)
                 if desc:
                     existing_item.description = desc
                 if bin_loc and bin_loc != "INBOUND":
@@ -131,9 +169,8 @@ async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Dep
 
                 existing_item.on_hand_qty += line.quantity
                 final_sku = existing_item.sku
-
             else:
-                # Articolo nuovo: assegna o genera lo SKU
+                # Assegnazione o generazione SKU garantito univoco per questo mandante
                 if custom_sku:
                     final_sku = custom_sku
                 else:
@@ -165,10 +202,9 @@ async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Dep
 
             processed_lines.append((final_sku, line.quantity))
 
-        # Esegue il flush per confermare la corretta consistenza
         await db.flush()
 
-        # Registrazione transazioni di inventario
+        # Registrazione Ledger inventariale
         for sku_code, qty in processed_lines:
             tx = InventoryTransaction(
                 timestamp=now_str,
