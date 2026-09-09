@@ -714,7 +714,7 @@
         }
     }
 
-    async function resolveInboundBarcode(inputElem) {
+async function resolveInboundBarcode(inputElem) {
         const row = inputElem.closest("tr");
         const val = inputElem.value.trim();
         if(!val) return;
@@ -737,10 +737,16 @@
                 const item = await res.json();
                 if(item.merchant_id === merchantId) {
                     row.querySelector(".row-sku").value = item.sku;
-                    row.querySelector(".row-desc").value = item.description;
-                    row.querySelector(".row-bin").value = item.bin_location;
+                    if (!row.querySelector(".row-desc").value) {
+                        row.querySelector(".row-desc").value = item.description;
+                    }
+                    if (!row.querySelector(".row-bin").value || row.querySelector(".row-bin").value === "A-01-01") {
+                        row.querySelector(".row-bin").value = item.bin_location;
+                    }
                     playBeep(900, 0.08);
                     return;
+                } else {
+                    alert(`Attenzione: Il barcode [${val}] risulta già censito per un altro mandante (${item.merchant_name || 'ID ' + item.merchant_id}).`);
                 }
             }
 

@@ -39,9 +39,10 @@ async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Dep
     """
     Elabora il carico merce da DDT:
     - Rifiuta righe con barcode duplicati all'interno dello stesso documento.
-    - Se il barcode è già associato al mandante, ne aggiorna scorta e ubicazione.
-    - Se il barcode è nuovo, genera uno SKU sequenziale garantito inedito sia nel DDT che a database.
-    - Scrive nel ledger inventariale e traccia gli errori a terminale con traceback completo.
+    - Se il barcode esiste già per lo stesso mandante, incrementa la giacenza e aggiorna l'ubicazione.
+    - Se il barcode appartiene a un altro mandante, solleva un errore 400 esplicito.
+    - Se il barcode è nuovo, genera uno SKU sequenziale garantito sia nel DDT che a database.
+    - Registra i movimenti nel ledger di magazzino (InventoryTransaction).
     """
     if not payload.items:
         raise HTTPException(
@@ -91,34 +92,51 @@ async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Dep
             bin_loc = line.bin_location.strip().upper() if (line.bin_location and line.bin_location.strip()) else "INBOUND"
             barcode = line.barcode.strip() if (line.barcode and line.barcode.strip()) else ""
 
-            # Ricerca l'articolo per Barcode associato a questo mandante
+            # 2. Ricerca globale per Barcode (indipendentemente dal mandante)
+            # Questo evita la violazione del vincolo UNIQUE ix_items_barcode
             existing_item = None
             if barcode:
-                stmt_bc = select(Item).where(
-                    Item.barcode == barcode,
-                    Item.merchant_id == payload.merchant_id
-                ).with_for_update()
+                stmt_bc = select(Item).where(Item.barcode == barcode).with_for_update()
                 res_bc = await db.execute(stmt_bc)
                 existing_item = res_bc.scalar_one_or_none()
 
+            # 3. Se non trovato per barcode ma è stato passato uno SKU manuale, cerca per SKU
+            custom_sku = line.sku.strip().upper() if (line.sku and line.sku.strip()) else ""
+            if not existing_item and custom_sku:
+                stmt_sku = select(Item).where(Item.sku == custom_sku).with_for_update()
+                res_sku = await db.execute(stmt_sku)
+                existing_item = res_sku.scalar_one_or_none()
+
             if existing_item:
+                # Se l'articolo appartiene a un altro mandante, blocchiamo l'operazione
                 if existing_item.merchant_id != payload.merchant_id:
+                    # Recupera ragione sociale mandante proprietario per un messaggio trasparente
+                    owner_mch = await db.get(Merchant, existing_item.merchant_id)
+                    owner_name = owner_mch.company_name if owner_mch else f"ID #{existing_item.merchant_id}"
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"L'articolo [{existing_item.sku}] appartiene a un altro mandante (#{existing_item.merchant_id})."
+                        detail=(
+                            f"Il Barcode [{barcode or existing_item.barcode}] (SKU: {existing_item.sku}) "
+                            f"è già registrato a sistema per un altro mandante: {owner_name}."
+                        )
                     )
-                existing_item.description = desc
-                existing_item.bin_location = bin_loc
+
+                # Articolo già esistente per questo mandante: aggiorniamo scorta e ubicazione (se fornita)
+                if desc:
+                    existing_item.description = desc
+                if bin_loc and bin_loc != "INBOUND":
+                    existing_item.bin_location = bin_loc
+                elif not existing_item.bin_location:
+                    existing_item.bin_location = bin_loc
+
                 existing_item.on_hand_qty += line.quantity
                 final_sku = existing_item.sku
+
             else:
-                # Se lo SKU è già stato indicato esplicitamente (non vuoto), usalo, altrimenti genera il sequenziale
-                custom_sku = line.sku.strip().upper() if (line.sku and line.sku.strip()) else ""
-                
+                # Articolo nuovo: assegna o genera lo SKU
                 if custom_sku:
                     final_sku = custom_sku
                 else:
-                    # Generazione SKU sequenziale garantito sia nel documento che nel database
                     while True:
                         candidate_sku = f"{prefix}{current_seq:04d}"
                         current_seq += 1
@@ -147,10 +165,10 @@ async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Dep
 
             processed_lines.append((final_sku, line.quantity))
 
-        # Scrive su PostgreSQL per soddisfare i vincoli FK
+        # Esegue il flush per confermare la corretta consistenza
         await db.flush()
 
-        # Scrittura Ledger di magazzino
+        # Registrazione transazioni di inventario
         for sku_code, qty in processed_lines:
             tx = InventoryTransaction(
                 timestamp=now_str,
@@ -179,7 +197,7 @@ async def receive_inbound_ddt(payload: InboundDDTRequest, db: AsyncSession = Dep
 
     return {
         "status": "ok",
-        "message": f"DDT {doc_ref} registrato con successo. Elaborati {len(payload.items)} articoli con SKU sequenziali univoci.",
+        "message": f"DDT {doc_ref} registrato con successo. Elaborati {len(payload.items)} articoli.",
         "doc_reference": doc_ref,
         "items_count": len(payload.items)
     }
