@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -10,6 +10,9 @@ class Merchant(Base):
     account_code = Column(String(50), unique=True, nullable=False, index=True)
     company_name = Column(String(200), nullable=False)
     pin_hash = Column(String(255), nullable=False)
+    # Nuovi campi aggiunti
+    email = Column(String(150), nullable=True)
+    phone = Column(String(50), nullable=True)
 
     items = relationship("Item", back_populates="merchant")
     orders = relationship("DispatchOrder", back_populates="merchant")
@@ -70,3 +73,29 @@ class DispatchOrderLine(Base):
     picked_qty = Column(Integer, nullable=False)
 
     order = relationship("DispatchOrder", back_populates="lines")
+
+
+# ==========================================
+# NUOVI MODELLI (SMTP & OPERATOR)
+# ==========================================
+
+class SmtpSettings(Base):
+    __tablename__ = "smtp_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    smtp_host = Column(String(150), nullable=False, default='')
+    smtp_port = Column(Integer, nullable=False, default=587)
+    smtp_user = Column(String(150), nullable=False, default='')
+    smtp_password = Column(String(255), nullable=False, default='')
+    sender_email = Column(String(150), nullable=False, default='')
+    sender_name = Column(String(150), nullable=False, default='AdaptiQ Logistics')
+    use_tls = Column(Boolean, nullable=False, default=True)
+    portal_base_url = Column(String(200), nullable=False, default='http://localhost')
+
+
+class OperatorUser(Base):
+    __tablename__ = "operator_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)

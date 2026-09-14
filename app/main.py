@@ -7,7 +7,9 @@ from app.config import STATIC_DIR
 from app.database import engine, Base, AsyncSessionLocal
 from app.models import Merchant, Item
 from app.auth import hash_pin
-from app.routers import views, merchants, inventory, inbound, outbound, items
+
+# Importazione di TUTTI i router necessari
+from app.routers import views, merchants, inventory, inbound, outbound, items, config, operator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,19 +38,24 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("SELECT pg_advisory_unlock(847291)"))
     yield
 
+
+# 1. Creazione dell'istanza dell'applicazione
 app = FastAPI(
     title="AdaptiQ WMS - Adaptive Logistics & Fulfillment Suite",
     description="High-velocity, multi-tenant warehouse operating system.",
     lifespan=lifespan
 )
 
+# 2. Montaggio dei file statici
 STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# Registrazione Router modulari
+# 3. Registrazione dei Router (Solo DOPO aver creato l'oggetto `app`)
 app.include_router(views.router)
 app.include_router(merchants.router)
 app.include_router(inventory.router)
 app.include_router(inbound.router)
 app.include_router(outbound.router)
 app.include_router(items.router)
+app.include_router(config.router)
+app.include_router(operator.router)

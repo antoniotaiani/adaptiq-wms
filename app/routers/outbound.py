@@ -1,13 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+# app/routers/outbound.py
+import io
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
 
+# Importazioni per la generazione del PDF
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+
 from app.database import get_db
 from app.models import Item, Merchant, DispatchOrder, DispatchOrderLine, InventoryTransaction
 from app.schemas import DispatchFulfillRequest
+from app.email_utils import send_email_background, check_smtp_configured
 
 router = APIRouter(prefix="/api/orders", tags=["Outbound"])
 
@@ -24,13 +33,75 @@ class DDTValidationRequest(BaseModel):
     items: List[DDTLineItem]
 
 
+# --- Funzione Helper per generare il PDF in memoria ---
+def generate_ddt_pdf(order_number: str, merchant_name: str, processed_at: str, items: list) -> bytes:
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Intestazione Documento
+    elements.append(Paragraph("<b>DOCUMENTO DI TRASPORTO / PACKING SLIP</b>", styles['Title']))
+    elements.append(Paragraph("<font color='#0284c7'><b>AdaptiQ WMS</b> - Verbale Ufficiale di Spedizione</font>", styles['Normal']))
+    elements.append(Spacer(1, 20))
+    
+    # Dati Generali
+    total_pieces = sum(i.picked_qty for i in items)
+    info_text = (
+        f"<b>Mandante:</b> {merchant_name}<br/>"
+        f"<b>Riferimento Ordine/DDT:</b> {order_number}<br/>"
+        f"<b>Data e Ora Evasione:</b> {processed_at}<br/>"
+        f"<b>Pezzi Totali Spediti:</b> {total_pieces}"
+    )
+    elements.append(Paragraph(info_text, styles['Normal']))
+    elements.append(Spacer(1, 20))
+
+    # Tabella Articoli
+    table_data = [["SKU", "Barcode", "Descrizione", "Ubicaz.", "Q.tà"]]
+    for it in items:
+        desc = (it.description[:45] + '...') if it.description and len(it.description) > 45 else (it.description or "")
+        table_data.append([
+            it.sku, 
+            it.barcode or "", 
+            desc, 
+            it.bin_location or "", 
+            str(it.picked_qty)
+        ])
+    
+    # Stile Tabella
+    t = Table(table_data, colWidths=[80, 90, 240, 60, 40])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#0f172a")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('ALIGN', (-1,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 10),
+        ('BOTTOMPADDING', (0,0), (-1,0), 8),
+        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#f8fafc")),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,1), (-1,-1), 9),
+    ]))
+    elements.append(t)
+    
+    # Spazio Firme
+    elements.append(Spacer(1, 50))
+    signature_text = (
+        "_______________________________________ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "
+        "_______________________________________<br/>"
+        "Firma Operatore Logistico &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "
+        "Firma Vettore / Corriere"
+    )
+    elements.append(Paragraph(signature_text, styles['Normal']))
+
+    doc.build(elements)
+    return buffer.getvalue()
+
+
 # --- 1. Endpoint di Convalida Preventiva DDT di Vendita ---
 @router.post("/validate-ddt")
 async def validate_ddt(payload: DDTValidationRequest, db: AsyncSession = Depends(get_db)):
-    """
-    Verifica la disponibilità di magazzino al momento della presentazione del DDT.
-    Blocca la lavorazione se anche solo un articolo risulta insufficiente a scaffale.
-    """
     if not payload.items:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
@@ -39,7 +110,6 @@ async def validate_ddt(payload: DDTValidationRequest, db: AsyncSession = Depends
 
     order_num = payload.order_number.strip()
 
-    # Verifica se l'ordine/DDT è già presente nel registro evasioni
     check_stmt = select(DispatchOrder.id).where(
         func.lower(DispatchOrder.order_number) == func.lower(order_num),
         DispatchOrder.merchant_id == payload.merchant_id
@@ -124,88 +194,131 @@ async def check_order_exists(order_number: str, merchant_id: Optional[int] = Non
 
 
 @router.post("/fulfill")
-async def fulfill_order(payload: DispatchFulfillRequest, db: AsyncSession = Depends(get_db)):
+async def fulfill_order(
+    payload: DispatchFulfillRequest, 
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
     if not payload.items:
         raise HTTPException(status_code=400, detail="Impossibile evadere un ordine privo di articoli.")
 
     order_num = payload.order_number.strip()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    async with db.begin():
-        check_stmt = select(DispatchOrder.id).where(
-            func.lower(DispatchOrder.order_number) == func.lower(order_num),
-            DispatchOrder.merchant_id == payload.merchant_id
+    res_m = await db.execute(select(Merchant).where(Merchant.id == payload.merchant_id))
+    merchant = res_m.scalar_one_or_none()
+
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Mandante non trovato.")
+
+    check_stmt = select(DispatchOrder.id).where(
+        func.lower(DispatchOrder.order_number) == func.lower(order_num),
+        DispatchOrder.merchant_id == payload.merchant_id
+    )
+    existing_order = (await db.execute(check_stmt)).first()
+    if existing_order:
+        raise HTTPException(status_code=409, detail=f"L'ordine [{order_num}] risulta già evaso.")
+
+    total_units = sum(i.picked_qty for i in payload.items)
+    disp_order = DispatchOrder(
+        order_number=order_num,
+        merchant_id=payload.merchant_id,
+        processed_at=now_str,
+        status="COMPLETED",
+        total_units=total_units
+    )
+    db.add(disp_order)
+    await db.flush()
+
+    for it in payload.items:
+        item_stmt = select(Item).where(Item.sku == it.sku).with_for_update()
+        item_res = await db.execute(item_stmt)
+        curr_item = item_res.scalar_one_or_none()
+
+        if not curr_item:
+            raise HTTPException(status_code=404, detail=f"Lo SKU [{it.sku}] non esiste più nel catalogo.")
+
+        if it.picked_qty <= 0:
+            raise HTTPException(status_code=400, detail=f"Quantità prelevata non valida ({it.picked_qty}) per SKU [{it.sku}].")
+
+        if it.picked_qty > curr_item.on_hand_qty:
+            raise HTTPException(status_code=409, detail=f"Over-picking non consentito per SKU [{it.sku}]. Giacenza disponibile: {curr_item.on_hand_qty}.")
+
+        if it.picked_qty > it.expected_qty:
+            raise HTTPException(status_code=400, detail=f"Quantità prelevata ({it.picked_qty}) superiore a quella prevista per SKU [{it.sku}].")
+
+        curr_item.on_hand_qty -= it.picked_qty
+
+        line = DispatchOrderLine(
+            order_id=disp_order.id,
+            sku=it.sku,
+            barcode=it.barcode,
+            description=it.description,
+            bin_location=it.bin_location,
+            expected_qty=it.expected_qty,
+            picked_qty=it.picked_qty
         )
-        existing_order = (await db.execute(check_stmt)).first()
-        if existing_order:
-            raise HTTPException(status_code=409, detail=f"L'ordine [{order_num}] risulta già evaso.")
+        db.add(line)
 
-        total_units = sum(i.picked_qty for i in payload.items)
-        disp_order = DispatchOrder(
-            order_number=order_num,
-            merchant_id=payload.merchant_id,
-            processed_at=now_str,
-            status="COMPLETED",
-            total_units=total_units
+        tx = InventoryTransaction(
+            timestamp=now_str,
+            sku=it.sku,
+            transaction_type="OUTBOUND_PICK",
+            quantity=-it.picked_qty,
+            doc_reference=order_num
         )
-        db.add(disp_order)
-        await db.flush()
+        db.add(tx)
 
-        for it in payload.items:
-            item_stmt = select(Item).where(Item.sku == it.sku).with_for_update()
-            item_res = await db.execute(item_stmt)
-            curr_item = item_res.scalar_one_or_none()
+    await db.commit()
 
-            if not curr_item:
-                raise HTTPException(status_code=404, detail=f"Lo SKU [{it.sku}] non esiste più nel catalogo.")
-
-            if it.picked_qty <= 0:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Quantità prelevata non valida ({it.picked_qty}) per SKU [{it.sku}]."
-                )
-
-            if it.picked_qty > curr_item.on_hand_qty:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        f"Over-picking non consentito per SKU [{it.sku}] (Ubicazione: {curr_item.bin_location}). "
-                        f"Giacenza disponibile: {curr_item.on_hand_qty}, richiesta dal prelievo: {it.picked_qty}."
-                    )
-                )
-
-            if it.picked_qty > it.expected_qty:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Quantità prelevata ({it.picked_qty}) superiore a quella "
-                        f"prevista dall'ordine ({it.expected_qty}) per SKU [{it.sku}]."
-                    )
-                )
-
-            curr_item.on_hand_qty -= it.picked_qty
-
-            line = DispatchOrderLine(
-                order_id=disp_order.id,
-                sku=it.sku,
-                barcode=it.barcode,
-                description=it.description,
-                bin_location=it.bin_location,
-                expected_qty=it.expected_qty,
-                picked_qty=it.picked_qty
+    # --- VERIFICA CONFIGURAZIONE SMTP E GESTIONE INVIO EMAIL ---
+    email_status_info = {"sent": False, "message": ""}
+    
+    if not merchant.email:
+        email_status_info["message"] = "Ordine evaso. Email non inviata: il mandante non ha un indirizzo email registrato."
+    else:
+        is_smtp_valid, smtp_err = await check_smtp_configured(db)
+        if not is_smtp_valid:
+            email_status_info["message"] = f"Ordine evaso, ma email non inviata: parametri SMTP incompleti o mancanti in Fase 6 ({smtp_err})."
+        else:
+            pdf_bytes = generate_ddt_pdf(order_num, merchant.company_name, now_str, payload.items)
+            
+            html_body = f"""
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h2 style="color: #0284c7;">Spedizione Evasa: {order_num}</h2>
+                <p>Gentile <b>{merchant.company_name}</b>,</p>
+                <p>Ti informiamo che la spedizione in oggetto è stata finalizzata ed è pronta per il ritiro/consegna.</p>
+                <p>In allegato a questa email troverai il <b>Documento di Trasporto (DDT) in formato PDF</b> contenente il dettaglio ufficiale di tutti gli articoli prelevati.</p>
+                <br>
+                <p style="font-size: 0.9em; color: #666;">
+                    Cordiali saluti,<br>
+                    <b>Logistica AdaptiQ WMS</b>
+                </p>
+            </div>
+            """
+            
+            safe_mch = "".join(c for c in merchant.account_code if c.isalnum() or c in "_-")
+            safe_ord = "".join(c for c in order_num if c.isalnum() or c in "_-")
+            filename = f"DDT_{safe_mch}_{safe_ord}.pdf"
+            
+            background_tasks.add_task(
+                send_email_background,
+                db,
+                merchant.email,
+                f"Notifica Spedizione Evasa - Ordine: {order_num}",
+                html_body,
+                pdf_bytes,
+                filename
             )
-            db.add(line)
+            email_status_info["sent"] = True
+            email_status_info["message"] = f"Ordine evaso con successo! DDT generato e email con allegato in fase di invio a {merchant.email}."
 
-            tx = InventoryTransaction(
-                timestamp=now_str,
-                sku=it.sku,
-                transaction_type="OUTBOUND_PICK",
-                quantity=-it.picked_qty,
-                doc_reference=order_num
-            )
-            db.add(tx)
-
-    return {"status": "success", "order_id": disp_order.id, "timestamp": now_str}
+    return {
+        "status": "success", 
+        "order_id": disp_order.id, 
+        "timestamp": now_str,
+        "email_info": email_status_info
+    }
 
 
 @router.get("/history")
@@ -216,12 +329,6 @@ async def orders_history(
     merchant_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Restituisce l'archivio spedizioni evase con supporto a:
-    - Filtro per singolo Mandante
-    - Filtro range temporale 'Dal - Al' (date_from / date_to)
-    - Retrocompatibilità con filtro a data singola (date_filter)
-    """
     stmt = (
         select(
             DispatchOrder.id, DispatchOrder.order_number, Merchant.company_name,
@@ -230,18 +337,15 @@ async def orders_history(
         .join(Merchant, DispatchOrder.merchant_id == Merchant.id)
     )
 
-    # 1. Filtro Mandante
     if merchant_id:
         stmt = stmt.where(DispatchOrder.merchant_id == merchant_id)
 
-    # 2. Filtro per Range Temporale (Dal / Al)
     if date_from and date_from.strip():
         stmt = stmt.where(DispatchOrder.processed_at >= f"{date_from.strip()} 00:00:00")
 
     if date_to and date_to.strip():
         stmt = stmt.where(DispatchOrder.processed_at <= f"{date_to.strip()} 23:59:59")
 
-    # 3. Retrocompatibilità con data singola se presente
     if date_filter and not (date_from or date_to):
         stmt = stmt.where(DispatchOrder.processed_at.like(f"{date_filter.strip()}%"))
 

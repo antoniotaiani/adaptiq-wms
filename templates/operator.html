@@ -12,118 +12,16 @@
             --primary-blue: #0284c7;
             --primary-blue-dark: #0369a1;
             --accent-amber: #f59e0b;
-            --accent-amber-hover: #d97706;
             --surface-bg: #f8fafc;
             --text-main: #0f172a;
             --chocolate-brown: #78350f;
-            --chocolate-brown-hover: #92400e;
         }
-
-        body {
-            background-color: var(--surface-bg);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            min-height: 100vh;
-        }
-
-        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
-            outline: 3px solid var(--accent-amber) !important;
-            outline-offset: 2px !important;
-        }
-
-        .navbar-custom {
-            background-color: #ffffff;
-            border-bottom: 3px solid var(--accent-amber);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-        }
-
-        .brand-logo-nav {
-            height: 40px;
-            max-width: 140px;
-            object-fit: contain;
-        }
-
-        .brand-text-fallback {
-            font-size: 1.35rem;
-            font-weight: 900;
-            color: var(--primary-blue);
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            line-height: 1.1;
-        }
-
-        .brand-subtext {
-            color: #b45309;
-            font-size: 0.75rem;
-            font-weight: 700;
-            display: block;
-        }
-
-        .card-custom {
-            background: #ffffff;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
-        }
-
-        .btn-brand-primary {
-            background-color: var(--primary-blue);
-            color: #ffffff;
-            font-weight: 700;
-            border: none;
-            padding: 0.55rem 1.1rem;
-            border-radius: 8px;
-            transition: background 0.2s;
-        }
-        .btn-brand-primary:hover { background-color: var(--primary-blue-dark); color: #ffffff; }
-
-        .btn-brand-amber {
-            background-color: var(--accent-amber);
-            color: #000000;
-            font-weight: 700;
-            border: none;
-            padding: 0.55rem 1.1rem;
-            border-radius: 8px;
-            transition: background 0.2s;
-        }
-        .btn-brand-amber:hover { background-color: var(--accent-amber-hover); color: #000000; }
-
-        .nav-link-chocolate {
-            color: var(--chocolate-brown) !important;
-            border: 1.5px solid var(--chocolate-brown) !important;
-            background-color: #fffbeb !important;
-        }
-        .nav-link-chocolate:hover {
-            background-color: #fef3c7 !important;
-            color: var(--chocolate-brown-hover) !important;
-        }
-        .nav-link-chocolate.active {
-            background-color: var(--chocolate-brown) !important;
-            color: #ffffff !important;
-            border-color: var(--chocolate-brown) !important;
-        }
-
-        .mode-order {
-            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%) !important;
-            border: 2px solid var(--primary-blue) !important;
-        }
-        .mode-picking {
-            background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%) !important;
-            border: 2px solid var(--accent-amber) !important;
-        }
-
+        body { background-color: var(--surface-bg); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+        .navbar-custom { background-color: #ffffff; border-bottom: 3px solid var(--accent-amber); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        .card-custom { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04); }
         .row-ok { background-color: #dcfce7 !important; }
         .row-prog { background-color: #fef9c3 !important; }
-
-        #cameraScannerContainer {
-            width: 100%;
-            max-width: 480px;
-            margin: 0 auto;
-            border-radius: 12px;
-            overflow: hidden;
-            background: #000;
-        }
-
+        #cameraScannerContainer { width: 100%; max-width: 480px; margin: 0 auto; border-radius: 12px; overflow: hidden; background: #000; }
         @media print {
             body { background: white; margin: 0; padding: 0; }
             .no-print { display: none !important; }
@@ -138,21 +36,52 @@
 </head>
 <body>
 
+<!-- OVERLAY DI SICUREZZA LOGIN OPERATORE -->
+<div id="authOverlay" class="position-fixed w-100 h-100 top-0 start-0 d-flex justify-content-center align-items-center" style="background-color: #f8fafc; z-index: 10000;">
+    <div class="card card-custom p-4 shadow-lg" style="max-width: 400px; width: 100%; border-top: 5px solid var(--primary-blue);">
+        <div class="text-center mb-4">
+            <h3 class="fw-bold text-primary mb-1">⚡ AdaptiQ WMS</h3>
+            <p class="text-muted small">Accesso Terminale Operativo</p>
+        </div>
+        <div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Nome Utente Operatore</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" id="opUsername" class="form-control fw-bold" placeholder="admin" value="admin">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label small fw-bold">Password di Sicurezza</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                    <input type="password" id="opPassword" class="form-control" placeholder="••••••••">
+                </div>
+            </div>
+            <button id="btnOpLogin" type="button" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" onclick="operatorLoginForce()">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Sblocca Terminale
+            </button>
+        </div>
+        <div id="opLoginError" class="alert alert-danger mt-3 d-none small text-center fw-bold"></div>
+    </div>
+</div>
+
 <header class="navbar-custom py-2 px-3 mb-3 no-print">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-3">
-            <img src="/static/logo.png" alt="AdaptiQ Logo" class="brand-logo-nav" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
+            <img src="/static/logo.png" alt="AdaptiQ Logo" style="height:40px; max-width:140px; object-fit:contain;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
             <div class="border-start ps-3 d-none d-sm-block">
-                <span class="brand-text-fallback">⚡ AdaptiQ WMS</span>
-                <span class="brand-subtext">Postazione Operativa di Magazzino</span>
+                <span class="fs-5 fw-bold text-primary text-uppercase">⚡ AdaptiQ WMS</span>
+                <span class="d-block" style="color: #b45309; font-size: 0.75rem; font-weight: 700;">Postazione Operativa di Magazzino</span>
             </div>
-            <span class="badge bg-dark ms-2 d-none d-md-inline-block px-2 py-1">Terminale Operatore</span>
         </div>
-
         <div class="d-flex align-items-center gap-2">
-            <a href="/portal" target="_blank" class="btn btn-brand-amber shadow-sm btn-sm py-2">
-                <i class="bi bi-box-arrow-up-right me-1"></i> Apri Portale Mandanti
+            <a href="/portal" target="_blank" class="btn btn-warning shadow-sm btn-sm fw-bold py-2">
+                <i class="bi bi-box-arrow-up-right me-1"></i> Portale Mandanti
             </a>
+            <button class="btn btn-outline-danger shadow-sm btn-sm fw-bold py-2 ms-2" onclick="logoutOperator()">
+                <i class="bi bi-power"></i> Esci
+            </button>
         </div>
     </div>
 </header>
@@ -160,60 +89,63 @@
 <main class="container-fluid px-2 px-md-4 no-print">
     <ul class="nav nav-pills gap-2 mb-3" id="opTab" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active fw-bold px-3 py-2" id="btn-tab-picking" data-bs-toggle="tab" data-bs-target="#tab-picking" onclick="onTabSwitch('picking')">
-                <i class="bi bi-box-arrow-up-right me-1"></i> FASE 1: Uscita Merci & Spedizione
+            <button class="nav-link active fw-bold px-3 py-2" data-bs-toggle="tab" data-bs-target="#tab-picking" onclick="onTabSwitch('picking')">
+                <i class="bi bi-box-arrow-up-right me-1"></i> FASE 1: Spedizione
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-inbound" data-bs-toggle="tab" data-bs-target="#tab-inbound" onclick="onTabSwitch('inbound')">
-                <i class="bi bi-box-arrow-in-down me-1"></i> FASE 2: Entrata Merci & Ricezione DDT
+            <button class="nav-link fw-bold px-3 py-2" data-bs-toggle="tab" data-bs-target="#tab-inbound" onclick="onTabSwitch('inbound')">
+                <i class="bi bi-box-arrow-in-down me-1"></i> FASE 2: Entrata
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-history" data-bs-toggle="tab" data-bs-target="#tab-history" onclick="onTabSwitch('history')">
-                <i class="bi bi-clock-history me-1"></i> FASE 3: Archivio Spedizioni Evase
+            <button class="nav-link fw-bold px-3 py-2" data-bs-toggle="tab" data-bs-target="#tab-history" onclick="onTabSwitch('history')">
+                <i class="bi bi-clock-history me-1"></i> FASE 3: Archivio
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link nav-link-chocolate fw-bold px-3 py-2 shadow-sm" id="btn-tab-inventory" data-bs-toggle="tab" data-bs-target="#tab-inventory" onclick="onTabSwitch('inventory')">
-                <i class="bi bi-boxes me-1"></i> FASE 4: Giacenze & Rettifica Inventario
+            <button class="nav-link fw-bold px-3 py-2" data-bs-toggle="tab" data-bs-target="#tab-inventory" onclick="onTabSwitch('inventory')" style="color: #78350f; background-color: #fffbeb;">
+                <i class="bi bi-boxes me-1"></i> FASE 4: Inventario
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold px-3 py-2" id="btn-tab-merchants" data-bs-toggle="tab" data-bs-target="#tab-merchants" onclick="renderMerchantsDirectory()">
-                <i class="bi bi-people-fill me-1"></i> FASE 5: Anagrafica Mandanti
+            <button class="nav-link fw-bold px-3 py-2" data-bs-toggle="tab" data-bs-target="#tab-merchants" onclick="renderMerchantsDirectory()">
+                <i class="bi bi-people-fill me-1"></i> FASE 5: Anagrafica
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold px-3 py-2" data-bs-toggle="tab" data-bs-target="#tab-config" onclick="loadSmtpConfig()">
+                <i class="bi bi-gear-fill me-1"></i> FASE 6: Configurazioni
             </button>
         </li>
     </ul>
 
     <div class="tab-content">
-        <!-- TAB 1: USCITA MERCI / PICKING -->
+        <!-- TAB 1: PICKING -->
         <div class="tab-pane fade show active" id="tab-picking">
             <div class="card card-custom p-3 mb-3" id="statusCard">
                 <div class="row g-2 align-items-end">
                     <div class="col-md-3">
-                        <label for="selectPickingMerchant" class="form-label small fw-bold text-muted">1. Seleziona Mandante / Committente *</label>
+                        <label class="form-label small fw-bold text-muted">1. Seleziona Mandante *</label>
                         <select id="selectPickingMerchant" class="form-select fw-bold border-2"></select>
                     </div>
                     <div class="col-md-3">
-                        <label for="activeOrderNumber" class="form-label small fw-bold text-muted">2. Documento di Trasporto / Ordine Spedizione</label>
+                        <label class="form-label small fw-bold text-muted">2. Documento di Trasporto</label>
                         <div class="input-group">
                             <input type="text" id="activeOrderNumber" class="form-control fw-bold border-2" placeholder="Nessun documento attivo" readonly>
-                            <button class="btn btn-brand-primary" onclick="openNewOrderModal()" title="Crea un nuovo documento da evadere">
-                                <i class="bi bi-file-earmark-plus me-1"></i> Nuovo (F1)
-                            </button>
+                            <button class="btn btn-primary fw-bold" onclick="openNewOrderModal()">Nuovo (F1)</button>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label small fw-bold text-muted">3. Fase Documento</label>
-                        <button id="btnToggleMode" class="btn w-100 fw-bold border-2" onclick="toggleMode()">
+                        <button id="btnToggleMode" class="btn btn-outline-primary w-100 fw-bold border-2" onclick="toggleMode()">
                             FASE: DISTINTA DDT (F12)
                         </button>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label small fw-bold text-danger">Reset Completo</label>
-                        <button class="btn btn-outline-danger w-100 fw-bold border-2" onclick="resetPickingCompletely()" title="Annulla tutto l'ordine e ricomincia da zero">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i> Annulla Tutto
+                        <button class="btn btn-outline-danger w-100 fw-bold border-2" onclick="resetPickingCompletely()">
+                            <i class="bi bi-arrow-counterclockwise"></i> Annulla Tutto
                         </button>
                     </div>
                     <div class="col-md-2 text-end">
@@ -222,17 +154,15 @@
                         </button>
                     </div>
                 </div>
-                <div class="mt-2 text-muted small" id="modeHelperText">
-                    <i class="bi bi-info-circle me-1"></i> <span id="modeDescription">Fase Attuale: <b>Caricamento Distinta</b> (scansiona o inserisci gli articoli previsti dal documento di spedizione).</span>
-                </div>
             </div>
+
+            <!-- MESSAGGIO DI CONFERMA EMAIL DINAMICO -->
+            <div id="emailAlertContainer"></div>
 
             <div class="card card-custom p-3 mb-3 border-2 border-primary">
                 <div class="row g-2 align-items-center">
                     <div class="col-md-2 col-sm-4">
-                        <label for="scanQtyInput" class="form-label small fw-bold text-primary mb-1">
-                            <i class="bi bi-123 me-1"></i> Q.tà Movimentata:
-                        </label>
+                        <label class="form-label small fw-bold text-primary mb-1">Q.tà Movimentata:</label>
                         <div class="input-group">
                             <button class="btn btn-outline-secondary btn-sm" type="button" onclick="adjustScanQty(-1)">-1</button>
                             <input type="number" id="scanQtyInput" class="form-control text-center fw-bold fs-5 font-monospace border-primary" value="1" min="1">
@@ -240,20 +170,15 @@
                         </div>
                     </div>
                     <div class="col-md-8 col-sm-8">
-                        <label for="barcodeInput" class="form-label small fw-bold text-primary mb-1">
-                            <i class="bi bi-upc-scan me-1"></i> Lettura Codice a Barre / SKU:
-                        </label>
+                        <label class="form-label small fw-bold text-primary mb-1">Lettura Barcode / SKU:</label>
                         <div class="input-group input-group-lg">
                             <input type="text" id="barcodeInput" class="form-control fw-bold font-monospace border-primary" placeholder="Scansiona Barcode/SKU o premi Invio (es. QTA*CODICE)..." autofocus>
-                            <button class="btn btn-primary fw-bold px-3" type="button" onclick="triggerBarcodeScan()" title="Conferma codice">
-                                <i class="bi bi-arrow-return-left me-1"></i> Inserisci
-                            </button>
+                            <button class="btn btn-primary fw-bold px-3" onclick="triggerBarcodeScan()">Inserisci</button>
                         </div>
                     </div>
-                    <div class="col-md-2 col-12 text-md-end text-center mt-md-4 mt-2">
-                        <button class="btn btn-warning fw-bold w-100 py-2 d-flex align-items-center justify-content-center gap-1 shadow-sm" type="button" onclick="startCameraScanner()">
-                            <i class="bi bi-camera-fill fs-5"></i>
-                            <span>Fotocamera</span>
+                    <div class="col-md-2 mt-4 text-end">
+                        <button class="btn btn-warning fw-bold w-100 py-2" onclick="startCameraScanner()">
+                            <i class="bi bi-camera-fill"></i> Fotocamera
                         </button>
                     </div>
                 </div>
@@ -264,40 +189,40 @@
                     <table class="table table-hover align-middle m-0">
                         <thead class="table-dark">
                             <tr>
-                                <th>Ubicazione Scaffale</th>
-                                <th>Codice SKU</th>
-                                <th>Barcode (EAN)</th>
-                                <th>Descrizione Articolo</th>
-                                <th class="text-center">Giacenza a Scaffale</th>
-                                <th class="text-center">Q.tà Prevista (DDT)</th>
-                                <th class="text-center">Q.tà Prelevata</th>
-                                <th class="text-center">Stato Riga</th>
-                                <th class="text-center">Elimina</th>
+                                <th>Ubicazione</th>
+                                <th>SKU</th>
+                                <th>Barcode</th>
+                                <th>Descrizione</th>
+                                <th class="text-center">Giacenza</th>
+                                <th class="text-center">Previsti</th>
+                                <th class="text-center">Prelevati</th>
+                                <th class="text-center">Stato</th>
+                                <th class="text-center">Rimuovi</th>
                             </tr>
                         </thead>
                         <tbody id="orderTableBody">
-                            <tr><td colspan="9" class="text-center text-muted py-4">Nessun documento attivo. Clicca su <b>Nuovo (F1)</b> per iniziare una spedizione.</td></tr>
+                            <tr><td colspan="9" class="text-center text-muted py-4">Nessun documento attivo. Clicca su <b>Nuovo (F1)</b> per iniziare.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- TAB 2: INBOUND / ENTRATA MERCI -->
+        <!-- TAB 2: INBOUND -->
         <div class="tab-pane fade" id="tab-inbound">
             <div class="card card-custom p-3 mb-3 border-start border-4 border-success">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
-                        <label for="inboundMerchant" class="form-label small fw-bold">1. Mandante Proprietario della Merce *</label>
+                        <label class="form-label small fw-bold">1. Mandante Proprietario *</label>
                         <select id="inboundMerchant" class="form-select fw-bold"></select>
                     </div>
                     <div class="col-md-4">
-                        <label for="inboundDocRef" class="form-label small fw-bold">2. Numero / Riferimento DDT di Entrata *</label>
-                        <input type="text" id="inboundDocRef" class="form-control fw-bold font-monospace" placeholder="Es. DDT-FORNITORE-2026/01">
+                        <label class="form-label small fw-bold">2. Riferimento DDT Entrata *</label>
+                        <input type="text" id="inboundDocRef" class="form-control fw-bold font-monospace" placeholder="Es. DDT-FORNITORE-01">
                     </div>
                     <div class="col-md-4 text-md-end">
-                        <button type="button" class="btn btn-outline-primary fw-bold" onclick="addInboundRow()">
-                            <i class="bi bi-plus-circle me-1"></i> Aggiungi Riga Articolo al DDT
+                        <button class="btn btn-outline-primary fw-bold" onclick="addInboundRow()">
+                            <i class="bi bi-plus-circle me-1"></i> Aggiungi Riga Articolo
                         </button>
                     </div>
                 </div>
@@ -308,90 +233,69 @@
                     <table class="table table-hover align-middle m-0" id="inboundTable">
                         <thead class="table-dark">
                             <tr>
-                                <th style="width: 22%;">Codice a Barre (EAN / Rif.) *</th>
-                                <th style="width: 18%;">Codice SKU Interno</th>
+                                <th style="width: 22%;">Codice a Barre (EAN) *</th>
+                                <th style="width: 18%;">SKU Interno</th>
                                 <th style="width: 28%;">Descrizione Merce *</th>
                                 <th style="width: 12%;">Ubicazione</th>
-                                <th style="width: 12%;" class="text-center">Quantità Ricevuta *</th>
+                                <th style="width: 12%;" class="text-center">Q.tà *</th>
                                 <th style="width: 8%;" class="text-center">Rimuovi</th>
                             </tr>
                         </thead>
                         <tbody id="inboundRowsBody"></tbody>
                     </table>
                 </div>
-                <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
-                    <span class="text-muted small">
-                        <i class="bi bi-info-circle me-1"></i> Lo SKU interno è generato automaticamente e protetto da scrittura per evitare sovrapposizioni e duplicati.
-                    </span>
+                <div class="card-footer bg-white d-flex justify-content-end py-3">
                     <button class="btn btn-success fw-bold px-4 py-2 shadow" onclick="submitInboundDDT()">
-                        <i class="bi bi-box-arrow-in-down me-1"></i> Registra Carico Merci a Sistema
+                        <i class="bi bi-box-arrow-in-down me-1"></i> Registra Carico Merci
                     </button>
                 </div>
             </div>
-
+            
             <div class="card card-custom p-3">
-                <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-1"></i> Riepilogo Ultimi Carichi Effettuati nella Sessione</h6>
+                <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-1"></i> Riepilogo Ultimi Carichi</h6>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle m-0">
                         <thead class="table-light">
-                            <tr>
-                                <th>Rif. DDT</th>
-                                <th>SKU</th>
-                                <th>Barcode</th>
-                                <th>Descrizione</th>
-                                <th>Ubicaz.</th>
-                                <th class="text-center">Q.tà Caricata</th>
-                                <th>Esito</th>
-                            </tr>
+                            <tr><th>Rif. DDT</th><th>SKU</th><th>Barcode</th><th>Descrizione</th><th>Ubicaz.</th><th class="text-center">Q.tà</th><th>Esito</th></tr>
                         </thead>
                         <tbody id="inboundHistoryBody">
-                            <tr><td colspan="7" class="text-center text-muted py-4">Nessun carico registrato nella sessione corrente.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted py-4">Nessun carico registrato nella sessione.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- TAB 3: STORICO SPEDIZIONI CON FILTRO RANGE TEMPORALE -->
+        <!-- TAB 3: HISTORY -->
         <div class="tab-pane fade" id="tab-history">
             <div class="card card-custom p-3 mb-3">
                 <div class="row g-2 align-items-end">
                     <div class="col-md-3">
-                        <label for="historyMerchant" class="form-label m-0 small fw-bold">1. Filtra Mandante:</label>
+                        <label class="form-label m-0 small fw-bold">1. Filtra Mandante:</label>
                         <select id="historyMerchant" class="form-select form-select-sm fw-bold" onchange="loadHistory(false)"></select>
                     </div>
-                    <div class="col-md-2 col-6">
-                        <label for="historyDateFrom" class="form-label m-0 small fw-bold">2. Dal (Data Inizio):</label>
+                    <div class="col-md-2">
+                        <label class="form-label m-0 small fw-bold">2. Dal:</label>
                         <input type="date" id="historyDateFrom" class="form-control form-control-sm">
                     </div>
-                    <div class="col-md-2 col-6">
-                        <label for="historyDateTo" class="form-label m-0 small fw-bold">3. Al (Data Fine):</label>
+                    <div class="col-md-2">
+                        <label class="form-label m-0 small fw-bold">3. Al:</label>
                         <input type="date" id="historyDateTo" class="form-control form-control-sm">
                     </div>
-                    <div class="col-md-5 d-flex gap-2 align-items-end mt-2 mt-md-0">
-                        <button class="btn btn-sm btn-brand-primary fw-bold flex-fill" onclick="loadHistory(false)">
-                            <i class="bi bi-funnel me-1"></i> Filtra Archivio
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary fw-bold flex-fill" onclick="resetHistoryFilters()">
-                            <i class="bi bi-list-ul me-1"></i> Mostra Tutto
-                        </button>
+                    <div class="col-md-5 d-flex gap-2">
+                        <button class="btn btn-sm btn-primary fw-bold flex-fill" onclick="loadHistory(false)">Filtra</button>
+                        <button class="btn btn-sm btn-outline-secondary fw-bold flex-fill" onclick="resetHistoryFilters()">Mostra Tutto</button>
                     </div>
                 </div>
             </div>
             <div class="row g-3">
                 <div class="col-md-6">
                     <div class="card card-custom">
-                        <div class="card-header bg-white fw-bold">Elenco Documenti di Spedizione Evasi</div>
+                        <div class="card-header bg-white fw-bold">Documenti Evasi</div>
                         <div class="table-responsive" style="max-height: 480px;">
                             <table class="table table-hover align-middle m-0">
                                 <thead class="table-light">
-                                    <tr>
-                                        <th>ID Sped.</th>
-                                        <th>N° DDT / Ordine</th>
-                                        <th>Mandante</th>
-                                        <th>Data & Ora Chiusura</th>
-                                        <th>Pezzi Spediti</th>
-                                    </tr>
+                                    <tr><th>ID</th><th>N° Ordine</th><th>Mandante</th><th>Data Ev.</th><th>Pezzi</th></tr>
                                 </thead>
                                 <tbody id="historyTableBody"></tbody>
                             </table>
@@ -401,25 +305,18 @@
                 <div class="col-md-6">
                     <div class="card card-custom">
                         <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                            <span class="fw-bold" id="detailTitle">Dettaglio Articoli Spedizione</span>
-                            <button id="btnPrintHistory" class="btn btn-sm btn-brand-amber fw-bold d-none" onclick="printSelectedHistory()">
-                                <i class="bi bi-printer me-1"></i> Ristampa Documento di Spedizione A4
+                            <span class="fw-bold" id="detailTitle">Dettaglio Articoli</span>
+                            <button id="btnPrintHistory" class="btn btn-sm btn-warning fw-bold d-none" onclick="printSelectedHistory()">
+                                <i class="bi bi-printer me-1"></i> Ristampa
                             </button>
                         </div>
                         <div class="table-responsive" style="max-height: 480px;">
                             <table class="table table-sm align-middle m-0">
                                 <thead class="table-light">
-                                    <tr>
-                                        <th>SKU</th>
-                                        <th>Barcode</th>
-                                        <th>Descrizione</th>
-                                        <th>Ubicaz.</th>
-                                        <th class="text-center">Previsto</th>
-                                        <th class="text-center">Prelevato</th>
-                                    </tr>
+                                    <tr><th>SKU</th><th>Barcode</th><th>Descrizione</th><th>Ubicaz.</th><th>Prev.</th><th>Prel.</th></tr>
                                 </thead>
                                 <tbody id="historyDetailBody">
-                                    <tr><td colspan="6" class="text-center text-muted py-4">Seleziona una spedizione dall'elenco a sinistra per vederne il dettaglio.</td></tr>
+                                    <tr><td colspan="6" class="text-center text-muted py-4">Seleziona una spedizione per i dettagli.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -428,49 +325,31 @@
             </div>
         </div>
 
-        <!-- TAB 4: GIACENZE & INVENTARIO -->
+        <!-- TAB 4: INVENTORY -->
         <div class="tab-pane fade" id="tab-inventory">
             <div class="card card-custom p-3 mb-3">
-                <div class="row g-2 align-items-center justify-content-between">
+                <div class="row g-2 justify-content-between">
                     <div class="col-md-4">
-                        <div class="input-group">
-                            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                            <input type="text" id="filterInvText" class="form-control" placeholder="Cerca SKU, descrizione, barcode, ubicazione..." onkeyup="filterInventoryTable()">
-                        </div>
+                        <input type="text" id="filterInvText" class="form-control" placeholder="Cerca SKU, barcode..." onkeyup="filterInventoryTable()">
                     </div>
                     <div class="col-md-4">
-                        <div class="input-group">
-                            <label class="input-group-text bg-light small fw-bold" for="filterInvMerchant">Filtra Mandante:</label>
-                            <select id="filterInvMerchant" class="form-select fw-bold" onchange="loadInventoryOperator()">
-                                <option value="">-- TUTTI I MANDANTI --</option>
-                            </select>
-                        </div>
+                        <select id="filterInvMerchant" class="form-select fw-bold" onchange="loadInventoryOperator()">
+                            <option value="">-- TUTTI I MANDANTI --</option>
+                        </select>
                     </div>
-                    <div class="col-md-4 text-md-end">
-                        <button class="btn btn-brand-amber fw-bold shadow-sm" onclick="printInventoryReportOp()">
-                            <i class="bi bi-printer me-1"></i> Stampa Foglio Inventario A4
-                        </button>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-warning fw-bold shadow-sm" onclick="printInventoryReportOp()">Stampa Foglio Inventario</button>
                     </div>
                 </div>
             </div>
-
             <div class="card card-custom overflow-hidden">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle m-0">
                         <thead class="table-dark">
-                            <tr>
-                                <th>Ubicazione Scaffale</th>
-                                <th>Codice SKU</th>
-                                <th>Barcode (EAN)</th>
-                                <th>Descrizione Merce</th>
-                                <th>Mandante</th>
-                                <th class="text-center">Giacenza a Sistema</th>
-                                <th class="text-center">Stato Scorta</th>
-                                <th class="text-center">Azioni su Referenza</th>
-                            </tr>
+                            <tr><th>Ubicazione</th><th>SKU</th><th>Barcode</th><th>Descrizione</th><th>Mandante</th><th class="text-center">Giacenza</th><th class="text-center">Stato</th><th class="text-center">Azioni</th></tr>
                         </thead>
                         <tbody id="inventoryTableBody">
-                            <tr><td colspan="8" class="text-center text-muted py-4">Caricamento inventario in corso...</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Caricamento inventario...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -482,41 +361,46 @@
             <div class="row g-3">
                 <div class="col-md-5 col-lg-4">
                     <div class="card card-custom p-4 border-start border-4 border-primary">
-                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-person-plus-fill me-1"></i> Registrazione Nuovo Mandante</h5>
+                        <h5 class="fw-bold text-primary mb-3">Registrazione Mandante</h5>
                         <div class="mb-3">
-                            <label for="newMerchantCode" class="form-label small fw-bold">Codice Identificativo Account (Univoco) *</label>
-                            <input type="text" id="newMerchantCode" class="form-control font-monospace text-uppercase" placeholder="Es. MCH-DELTA">
+                            <label class="form-label small fw-bold">Codice Account *</label>
+                            <input type="text" id="newMerchantCode" class="form-control text-uppercase" placeholder="Es. MCH-DELTA">
                         </div>
                         <div class="mb-3">
-                            <label for="newMerchantName" class="form-label small fw-bold">Ragione Sociale Completa *</label>
-                            <input type="text" id="newMerchantName" class="form-control" placeholder="Es. Delta Commercio Srl">
+                            <label class="form-label small fw-bold">Ragione Sociale *</label>
+                            <input type="text" id="newMerchantName" class="form-control" placeholder="Es. Delta Srl">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Email (per DDT e PIN)</label>
+                            <input type="email" id="newMerchantEmail" class="form-control" placeholder="info@azienda.it">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Telefono</label>
+                            <input type="text" id="newMerchantPhone" class="form-control" placeholder="+39 000 0000000">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">PIN Portale (Min. 8 char) *</label>
+                            <input type="password" id="newMerchantPin" class="form-control" placeholder="••••••••" minlength="8">
                         </div>
                         <div class="mb-4">
-                            <label for="newMerchantPin" class="form-label small fw-bold">PIN di Accesso Portale Dedicato *</label>
-                            <input type="password" id="newMerchantPin" class="form-control" placeholder="••••">
+                            <label class="form-label small fw-bold">Conferma PIN *</label>
+                            <input type="password" id="newMerchantPinConfirm" class="form-control" placeholder="••••••••" minlength="8">
                         </div>
-                        <button class="btn btn-brand-primary w-100 fw-bold py-2 shadow-sm" onclick="saveNewMerchant()">
-                            <i class="bi bi-check-circle me-1"></i> Salva e Attiva Mandante
+                        <button class="btn btn-primary w-100 fw-bold py-2" onclick="saveNewMerchant()">
+                            <i class="bi bi-check-circle"></i> Salva e Attiva
                         </button>
                     </div>
                 </div>
                 <div class="col-md-7 col-lg-8">
                     <div class="card card-custom p-3">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold m-0"><i class="bi bi-building me-1"></i> Elenco Mandanti Censiti</h5>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="renderMerchantsDirectory()">
-                                <i class="bi bi-arrow-clockwise me-1"></i> Ricarica Elenco
-                            </button>
+                            <h5 class="fw-bold m-0">Mandanti Censiti</h5>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="renderMerchantsDirectory()"><i class="bi bi-arrow-clockwise"></i> Ricarica</button>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle m-0">
                                 <thead class="table-dark">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Codice Univoco</th>
-                                        <th>Ragione Sociale</th>
-                                        <th class="text-center">Articoli a Catalogo</th>
-                                    </tr>
+                                    <tr><th>ID / Codice</th><th>Recapiti</th><th class="text-center">Articoli</th><th class="text-center">Azioni</th></tr>
                                 </thead>
                                 <tbody id="merchantsTableBody"></tbody>
                             </table>
@@ -525,1231 +409,519 @@
                 </div>
             </div>
         </div>
+
+        <!-- TAB 6: CONFIGURAZIONI SMTP & SICUREZZA -->
+        <div class="tab-pane fade" id="tab-config">
+            <div class="row justify-content-center g-4">
+                <div class="col-lg-8">
+                    <div class="card card-custom p-4 border-top border-4 border-secondary">
+                        <h5 class="fw-bold mb-4"><i class="bi bi-envelope-at me-2"></i> Impostazioni Server Email (SMTP)</h5>
+                        <p class="text-muted small mb-4">Questi parametri sono utilizzati dal sistema per inviare in automatico i DDT finalizzati ai clienti e le credenziali di accesso.</p>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold">Host SMTP Server</label>
+                                <input type="text" id="smtpHost" class="form-control" placeholder="es. smtp.gmail.com">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Porta (es. 465 o 587)</label>
+                                <input type="number" id="smtpPort" class="form-control" placeholder="587">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Username Auth</label>
+                                <input type="text" id="smtpUser" class="form-control" placeholder="tuamail@dominio.it">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Password Auth / App Password</label>
+                                <input type="password" id="smtpPass" class="form-control" placeholder="••••••••">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Email Mittente Pubblica</label>
+                                <input type="email" id="smtpSenderEmail" class="form-control" placeholder="logistica@miaazienda.it">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Nome Mittente</label>
+                                <input type="text" id="smtpSenderName" class="form-control" placeholder="AdaptiQ WMS Logistics">
+                            </div>
+                            <div class="col-md-12 mt-4">
+                                <label class="form-label small fw-bold text-primary">URL Pubblico Portale Clienti</label>
+                                <input type="text" id="smtpPortalUrl" class="form-control border-primary" placeholder="es. https://inventario.miaazienda.it">
+                            </div>
+                            <div class="col-md-12 mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
+                                <div class="form-check form-switch fs-5">
+                                    <input class="form-check-input" type="checkbox" id="smtpTls" checked>
+                                    <label class="form-check-label fs-6 fw-bold ms-2" for="smtpTls">Usa Crittografia (TLS/SSL)</label>
+                                </div>
+                                <button class="btn btn-success fw-bold px-4 py-2" onclick="saveSmtpConfig()">
+                                    <i class="bi bi-save me-1"></i> Salva Configurazione
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCCO RESET PASSWORD ADMIN DIRETTO -->
+                    <div class="card card-custom p-4 border-top border-4 border-warning mt-4">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-key-fill me-2 text-warning"></i> Reset Password Amministratore (Admin)</h5>
+                        <p class="text-muted small mb-3">Imposta direttamente una nuova password per il terminale di magazzino senza necessità della vecchia.</p>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Nuova Password (Min. 6 char)</label>
+                                <input type="password" id="newAdminPass" class="form-control" placeholder="••••••••" minlength="6">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Conferma Nuova Password</label>
+                                <input type="password" id="confirmAdminPass" class="form-control" placeholder="••••••••" minlength="6">
+                            </div>
+                            <div class="col-12 mt-3 text-end">
+                                <button class="btn btn-warning fw-bold px-4 py-2 text-dark shadow-sm" onclick="submitAdminPasswordChange()">
+                                    <i class="bi bi-shield-lock-fill me-1"></i> Forza Reset Password Admin
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </main>
 
-<!-- MODALE RETTIFICA INVENTARIO -->
-<div class="modal fade" id="modalAdjustStock" tabindex="-1" aria-hidden="true">
+<!-- MODALI -->
+<div class="modal fade" id="modalAdjustStock" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content card-custom">
-            <div class="modal-header">
-                <div class="d-flex align-items-center gap-2">
-                    <img src="/static/logo.png" alt="Logo" style="height: 24px;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
-                    <h5 class="modal-title fw-bold m-0" id="adjustModalTitle">Rettifica Giacenza Fisica Scaffale</h5>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="adjustModalTitle">Rettifica Giacenza</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <input type="hidden" id="adjustModalSku">
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">Nuova Quantità Effettiva Rilevata sul Posto</label>
-                    <div class="input-group input-group-lg">
-                        <button class="btn btn-outline-secondary" type="button" onclick="stepCount(-1)">-1</button>
-                        <input type="number" id="adjustModalQty" class="form-control text-center fw-bold fs-4" min="0">
-                        <button class="btn btn-outline-secondary" type="button" onclick="stepCount(1)">+1</button>
-                    </div>
+                    <label class="form-label small fw-bold">Nuova Quantità Rilevata</label>
+                    <div class="input-group input-group-lg"><button class="btn btn-outline-secondary" onclick="stepCount(-1)">-1</button><input type="number" id="adjustModalQty" class="form-control text-center fw-bold fs-4" min="0"><button class="btn btn-outline-secondary" onclick="stepCount(1)">+1</button></div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">Motivazione della Rettifica</label>
+                    <label class="form-label small fw-bold">Motivazione</label>
                     <select id="adjustModalReason" class="form-select">
-                        <option value="INVENTARIO_PERIODICO">Conteggio / Inventario Fisico Periodico</option>
-                        <option value="MERCE_DANNEGGIATA">Merce Danneggiata o Deteriorata</option>
-                        <option value="ECCEDENZA_TROVATA">Eccedenza Reperita a Scaffale</option>
-                        <option value="ERRORE_INSERIMENTO">Correzione Errore Operatore Precedente</option>
+                        <option value="INVENTARIO_PERIODICO">Conteggio Fisico Periodico</option><option value="MERCE_DANNEGGIATA">Merce Danneggiata</option><option value="ECCEDENZA_TROVATA">Eccedenza Reperita</option>
                     </select>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button type="button" class="btn btn-brand-primary" onclick="submitAdjustModal()">Conferma e Salva Giacenza</button>
-            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="button" class="btn btn-primary" onclick="submitAdjustModal()">Conferma</button></div>
         </div>
     </div>
 </div>
 
-<!-- MODALE CAMERA BARCODE -->
-<div class="modal fade no-print" id="cameraModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+<div class="modal fade no-print" id="cameraModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content card-custom bg-black text-white">
-            <div class="modal-header border-0 py-2">
-                <h6 class="modal-title fw-bold"><i class="bi bi-camera me-1"></i> Inquadra Codice a Barre</h6>
-                <button type="button" class="btn-close btn-close-white" onclick="stopCameraScanner()"></button>
-            </div>
-            <div class="modal-body p-2 text-center">
-                <div id="cameraScannerContainer"><div id="reader"></div></div>
-            </div>
-            <div class="modal-footer border-0 py-2 d-flex justify-content-between">
-                <button type="button" id="btnToggleTorch" class="btn btn-sm btn-outline-warning d-none" onclick="toggleCameraTorch()">
-                    <i class="bi bi-lightbulb-fill me-1"></i> Torcia
-                </button>
-                <button type="button" class="btn btn-sm btn-secondary ms-auto" onclick="stopCameraScanner()">Chiudi Fotocamera</button>
-            </div>
+            <div class="modal-header border-0 py-2"><h6 class="modal-title fw-bold"><i class="bi bi-camera me-1"></i> Fotocamera</h6><button type="button" class="btn-close btn-close-white" onclick="stopCameraScanner()"></button></div>
+            <div class="modal-body p-2 text-center"><div id="cameraScannerContainer"><div id="reader"></div></div></div>
+            <div class="modal-footer border-0 py-2 d-flex justify-content-between"><button type="button" id="btnToggleTorch" class="btn btn-sm btn-outline-warning d-none" onclick="toggleCameraTorch()">Torcia</button><button type="button" class="btn btn-sm btn-secondary ms-auto" onclick="stopCameraScanner()">Chiudi</button></div>
         </div>
     </div>
 </div>
 
-<!-- SEZIONE STAMPA A4 -->
+<div class="modal fade" id="modalResetPin" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-custom">
+            <div class="modal-header"><h5 class="modal-title fw-bold">Risoluzione Sicurezza: Reset PIN</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="resetPinMerchantId">
+                <p class="small text-muted mb-4">Questa operazione cambierà il PIN del cliente. Verrà inviata un'email automatica se l'indirizzo è presente nell'anagrafica.</p>
+                <div class="mb-3"><label class="form-label small fw-bold">Nuovo PIN (Min. 8 caratteri)</label><input type="password" id="resetPinNew" class="form-control fw-bold text-center fs-4"></div>
+                <div class="mb-3"><label class="form-label small fw-bold">Conferma Nuovo PIN</label><input type="password" id="resetPinConfirm" class="form-control fw-bold text-center fs-4"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button class="btn btn-danger fw-bold shadow-sm" onclick="submitResetPin()">Forza Reset PIN</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Area Stampa -->
 <div id="printArea">
     <div style="border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;">
         <div style="display: flex; align-items: center; gap: 12px;">
-            <img src="/static/logo.png" alt="AdaptiQ Logo" style="height: 48px; object-fit: contain;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
-            <div>
-                <h2 style="color: #0284c7; margin: 0; font-weight: 900;">⚡ AdaptiQ WMS</h2>
-                <div style="font-size: 8.5pt; color: #64748b; font-weight: bold;" id="prnSubTitle">Verbale Ufficiale di Spedizione e Conformità</div>
-                <h4 style="margin: 4px 0 0 0; color: #0f172a;" id="prnDocTitle">DOCUMENTO DI TRASPORTO / PACKING SLIP</h4>
-            </div>
+            <div><h2 style="color: #0284c7; margin: 0; font-weight: 900;">⚡ AdaptiQ WMS</h2><div style="font-size: 8.5pt; color: #64748b; font-weight: bold;" id="prnSubTitle">Verbale Ufficiale di Conformità</div><h4 style="margin: 4px 0 0 0; color: #0f172a;" id="prnDocTitle">DOCUMENTO DI TRASPORTO / PACKING SLIP</h4></div>
         </div>
-        <div style="text-align: right; font-size: 8.5pt;">
-            ID Documento: <b id="prnId"></b><br>
-            Data: <span id="prnDate"></span>
-        </div>
+        <div style="text-align: right; font-size: 8.5pt;">ID Documento: <b id="prnId"></b><br>Data: <span id="prnDate"></span></div>
     </div>
-    <div id="prnCustomHeader" style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; font-size: 9.5pt;">
-        <div><b>Mandante:</b> <span id="prnMerchant"></span></div>
-        <div><b>Rif. Ordine/DDT:</b> <span id="prnOrderNum" style="color: #0284c7; font-weight: bold;"></span></div>
-        <div><b>Pezzi Totali:</b> <b id="prnQty" style="color: #15803d;"></b></div>
+    <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; font-size: 9.5pt;">
+        <div><b>Mandante:</b> <span id="prnMerchant"></span></div><div><b>Rif. Ordine/DDT:</b> <span id="prnOrderNum" style="color: #0284c7; font-weight: bold;"></span></div><div><b>Pezzi Totali:</b> <b id="prnQty" style="color: #15803d;"></b></div>
     </div>
     <table>
-        <thead id="prnTableHead">
-            <tr>
-                <th style="width: 5%; text-align: center;">#</th>
-                <th style="width: 20%;">Codice SKU</th>
-                <th style="width: 20%;">Barcode (EAN)</th>
-                <th style="width: 35%;">Descrizione Merce</th>
-                <th style="width: 10%; text-align: center;">Ubicaz.</th>
-                <th style="width: 10%; text-align: center;">Prelevato</th>
-            </tr>
-        </thead>
+        <thead id="prnTableHead"></thead>
         <tbody id="prnTableBody"></tbody>
     </table>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    let mode = "ORDER";
-    let currentOrder = "";
-    let orderItems = {};
-    let merchantList = [];
-    let selectedHistoryData = null;
-    let cachedInventoryData = [];
-    let html5QrCode = null, isTorchOn = false, activeCameraDestination = "picking", targetInboundRow = null;
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const DEFAULT_APP_TITLE = "AdaptiQ WMS - Workstation Console";
-
-    function formatApiError(err, fallback = "Si è verificato un errore.") {
-        if (!err) return fallback;
-        if (typeof err === "string") return err;
-        if (typeof err.detail === "string") return err.detail;
-        if (Array.isArray(err.detail)) {
-            return "Errori riscontrati nei dati inseriti:\n" + err.detail.map(d => {
-                const loc = d.loc ? d.loc.slice(1).join(" -> ") : "Campo";
-                return `• [${loc}]: ${d.msg || JSON.stringify(d)}`;
-            }).join("\n");
-        }
-        if (Array.isArray(err.errors)) {
-            return "Errori riscontrati:\n" + err.errors.map(e => `• ${e.message || JSON.stringify(e)}`).join("\n");
-        }
+    let audioCtx = null;
+    function playBeep(freq=600, duration=0.1) {
+        try { 
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.frequency.value = freq; osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + duration); 
+        } catch(e) {}
+    }
+    function formatApiError(err, fallback = "Errore generico.") {
+        if (!err) return fallback; if (typeof err === "string") return err;
+        if (err.detail) return typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail);
         return err.message || JSON.stringify(err);
     }
 
-    function playBeep(freq = 600, duration = 0.1) {
-        try {
-            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-            osc.frequency.value = freq; osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + duration);
-        } catch(e) {}
-    }
-
-    window.addEventListener("keydown", (e) => {
-        if(e.key === "F1"){ e.preventDefault(); openNewOrderModal(); }
-        if(e.key === "F12"){ e.preventDefault(); toggleMode(); }
+    // --- AUTENTICAZIONE OPERATORE ---
+    document.addEventListener("DOMContentLoaded", () => {
+        fetch("/api/operator/init", {method: "POST"}).catch(()=>{});
+        if (localStorage.getItem("op_logged_in") === "true") {
+            const overlay = document.getElementById("authOverlay");
+            if(overlay) overlay.style.display = "none";
+            loadMerchants();
+        }
     });
 
-    function adjustScanQty(delta) {
-        const inp = document.getElementById("scanQtyInput");
-        let val = parseInt(inp.value) || 1;
-        val += delta;
-        if (val < 1) val = 1;
-        inp.value = val;
-        document.getElementById("barcodeInput").focus();
-    }
-
-    async function loadMerchants() {
+    async function operatorLoginForce() {
+        const u = document.getElementById("opUsername").value.trim();
+        const p = document.getElementById("opPassword").value;
+        const err = document.getElementById("opLoginError");
+        err.classList.add("d-none");
+        
         try {
-            const res = await fetch("/api/merchants");
-            merchantList = await res.json();
+            const res = await fetch("/api/operator/login", {
+                method: "POST", 
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({username: u, password: p})
+            });
             
-            const defaultPlaceholder = `<option value="" selected>-- TUTTI I MANDANTI --</option>`;
-            const merchantOptions = merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
-
-            document.getElementById("selectPickingMerchant").innerHTML = defaultPlaceholder + merchantOptions;
-            document.getElementById("inboundMerchant").innerHTML = defaultPlaceholder + merchantOptions;
-            document.getElementById("historyMerchant").innerHTML = defaultPlaceholder + merchantOptions;
-            document.getElementById("filterInvMerchant").innerHTML = defaultPlaceholder + merchantOptions;
-        } catch(e) {
-            console.error("Errore caricamento mandanti:", e);
+            if (res.ok) {
+                localStorage.setItem("op_logged_in", "true");
+                const overlay = document.getElementById("authOverlay");
+                if (overlay) {
+                    overlay.style.setProperty("display", "none", "important");
+                }
+                loadMerchants();
+            } else {
+                err.innerText = "Credenziali non valide."; 
+                err.classList.remove("d-none");
+            }
+        } catch(errObj) { 
+            err.innerText = "Errore di rete."; 
+            err.classList.remove("d-none"); 
         }
     }
 
-    function onTabSwitch(tabName) {
-        if (tabName === "picking") {
-            if (!currentOrder) {
-                document.getElementById("selectPickingMerchant").value = "";
-            }
-        } else if (tabName === "inbound") {
-            document.getElementById("inboundMerchant").value = "";
-            if (document.getElementById("inboundRowsBody").children.length === 0) {
-                addInboundRow();
-            }
-        } else if (tabName === "history") {
-            document.getElementById("historyMerchant").value = "";
-            document.getElementById("historyDateFrom").value = "";
-            document.getElementById("historyDateTo").value = "";
-            loadHistory(true);
-        } else if (tabName === "inventory") {
-            document.getElementById("filterInvMerchant").value = "";
-            loadInventoryOperator();
-        }
+    async function logoutOperator() {
+        await fetch("/api/operator/logout", {method: "POST"});
+        localStorage.removeItem("op_logged_in"); location.reload();
     }
 
-    function initInboundMerchants() {
-        onTabSwitch('inbound');
-    }
+    // --- RESET PASSWORD ADMIN DIRETTO ---
+    async function submitAdminPasswordChange() {
+        const new_password = document.getElementById("newAdminPass").value;
+        const confirm_password = document.getElementById("confirmAdminPass").value;
 
-    function resetPickingCompletely() {
-        if (!currentOrder && Object.keys(orderItems).length === 0 && !document.getElementById("selectPickingMerchant").value) {
-            alert("Nessuna attività in corso da annullare.");
+        if (!new_password || !confirm_password) {
+            alert("Compila entrambi i campi.");
             return;
         }
 
-        const confirmMsg = currentOrder 
-            ? `⚠️ Sei sicuro di voler ANNULLARE COMPLETAMENTE l'ordine "${currentOrder}"?\n\nTutte le righe scansionate andranno perse e la postazione verrà azzerata.`
-            : `Vuoi azzerare la postazione di prelievo e deselezionare il mandante?`;
-
-        if (confirm(confirmMsg)) {
-            currentOrder = "";
-            orderItems = {};
-            document.getElementById("selectPickingMerchant").value = "";
-            document.getElementById("activeOrderNumber").value = "";
-            document.getElementById("btnFinalizeOrder").classList.add("d-none");
-            document.getElementById("scanQtyInput").value = "1";
-            mode = "ORDER";
-            updateModeUI();
-            renderTable();
-            playBeep(400, 0.2);
-            alert("Postazione azzerata. Seleziona un mandante e apri un nuovo ordine per iniziare.");
+        if (new_password !== confirm_password) {
+            alert("Le password non coincidono.");
+            return;
         }
-    }
 
-    function addInboundRow(sku = '', barcode = '', desc = '', bin = 'A-01-01', qty = 10) {
-        const tbody = document.getElementById("inboundRowsBody");
-        const tr = document.createElement("tr");
-        tr.className = "inbound-data-row";
-
-        tr.innerHTML = `
-            <td>
-                <div class="input-group input-group-sm">
-                    <input type="text" class="form-control font-monospace fw-bold row-barcode" 
-                           placeholder="Scansiona Barcode/EAN *" value="${barcode}" onblur="resolveInboundBarcode(this)" required>
-                    <button class="btn btn-outline-secondary" type="button" onclick="startRowCameraScan(this)" title="Scansiona con fotocamera">
-                        <i class="bi bi-camera-fill"></i>
-                    </button>
-                </div>
-            </td>
-            <td>
-                <input type="text" class="form-control form-control-sm font-monospace text-muted bg-light border-secondary-subtle row-sku" 
-                       placeholder="[Auto-generato]" value="${sku}" readonly tabindex="-1" title="Lo SKU viene assegnato automaticamente dal server in sequenza">
-            </td>
-            <td>
-                <input type="text" class="form-control form-control-sm row-desc" placeholder="Descrizione prodotto *" value="${desc}" required>
-            </td>
-            <td>
-                <input type="text" class="form-control form-control-sm font-monospace text-uppercase row-bin" placeholder="Es. A-01-01" value="${bin}">
-            </td>
-            <td>
-                <input type="number" class="form-control form-control-sm text-center fw-bold row-qty" value="${qty}" min="1" required>
-            </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeInboundRow(this)" title="Rimuovi riga"><i class="bi bi-trash"></i></button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-        tr.querySelector(".row-barcode").focus();
-    }
-
-    function removeInboundRow(btn) {
-        const tbody = document.getElementById("inboundRowsBody");
-        if (tbody.children.length > 1) {
-            btn.closest("tr").remove();
-        } else {
-            const r = tbody.children[0];
-            r.querySelector(".row-sku").value = "";
-            r.querySelector(".row-barcode").value = "";
-            r.querySelector(".row-desc").value = "";
-            r.querySelector(".row-qty").value = "10";
-        }
-    }
-
-    async function resolveInboundBarcode(inputElem) {
-        const row = inputElem.closest("tr");
-        const val = inputElem.value.trim();
-        if(!val) return;
-
-        const merchantSelect = document.getElementById("inboundMerchant");
-        const merchantId = parseInt(merchantSelect.value);
-        if(!merchantId || isNaN(merchantId)) {
-            alert("⚠️ Seleziona prima il mandante proprietario della merce dal menu in alto.");
-            inputElem.value = "";
-            merchantSelect.focus();
+        if (new_password.length < 6) {
+            alert("La nuova password deve essere di almeno 6 caratteri.");
             return;
         }
 
         try {
-            const res = await fetch("/api/items/resolve", {
+            const res = await fetch("/api/operator/admin/reset-password", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    code: val,
-                    merchant_id: merchantId
-                })
-            });
-
-            if(res.ok) {
-                const item = await res.json();
-                if(item.merchant_id === merchantId) {
-                    row.querySelector(".row-sku").value = item.sku;
-                    if (!row.querySelector(".row-desc").value) {
-                        row.querySelector(".row-desc").value = item.description;
-                    }
-                    if (!row.querySelector(".row-bin").value || row.querySelector(".row-bin").value === "A-01-01") {
-                        row.querySelector(".row-bin").value = item.bin_location;
-                    }
-                    playBeep(900, 0.08);
-                    return;
-                }
-            } else {
-                const checkOtherRes = await fetch("/api/items/resolve", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({ code: val })
-                });
-
-                if (checkOtherRes.ok) {
-                    const otherItem = await checkOtherRes.json();
-                    playBeep(400, 0.15);
-                    const useDesc = confirm(
-                        `ℹ️ Informazione: Il Barcode [${val}] risulta già censito a magazzino per "${otherItem.merchant_name}".\n\n` +
-                        `Confermandolo, verrà generato un nuovo SKU esclusivo per il mandante selezionato.\n` +
-                        `Vuoi copiare la descrizione "${otherItem.description}"?`
-                    );
-                    if (useDesc && !row.querySelector(".row-desc").value) {
-                        row.querySelector(".row-desc").value = otherItem.description;
-                    }
-                }
-            }
-
-            row.querySelector(".row-sku").value = "";
-        } catch(e) {
-            console.error("Errore risoluzione codice a barre:", e);
-        }
-    }
-
-    async function submitInboundDDT(forceShared = false) {
-        const merchantId = parseInt(document.getElementById("inboundMerchant").value);
-        const docRef = document.getElementById("inboundDocRef").value.trim();
-        const rows = document.querySelectorAll(".inbound-data-row");
-
-        if(!merchantId || isNaN(merchantId)) {
-            alert("⚠️ Seleziona obbligatoriamente il mandante proprietario della merce prima di procedere.");
-            document.getElementById("inboundMerchant").focus();
-            return;
-        }
-
-        if(!docRef) {
-            alert("Inserisci il numero o riferimento del DDT di entrata.");
-            document.getElementById("inboundDocRef").focus();
-            return;
-        }
-
-        const items = [];
-        const seenBarcodes = new Set();
-
-        for(let r of rows) {
-            const barcode = r.querySelector(".row-barcode").value.trim();
-            const sku = r.querySelector(".row-sku").value.trim().toUpperCase();
-            const description = r.querySelector(".row-desc").value.trim();
-            const bin_location = r.querySelector(".row-bin").value.trim().toUpperCase() || "INBOUND";
-            const quantity = parseInt(r.querySelector(".row-qty").value);
-
-            if(!barcode) {
-                alert("Tutte le righe devono avere un Codice a Barre valorizzato.");
-                r.querySelector(".row-barcode").focus();
-                return;
-            }
-
-            if(seenBarcodes.has(barcode.toLowerCase())) {
-                alert(`Errore: Barcode [${barcode}] duplicato nel DDT! Unifica le quantità sulla stessa riga.`);
-                r.querySelector(".row-barcode").focus();
-                return;
-            }
-            seenBarcodes.add(barcode.toLowerCase());
-
-            if(!description || isNaN(quantity) || quantity <= 0) {
-                alert("Completa tutti i campi obbligatori delle righe (Descrizione, Quantità > 0).");
-                return;
-            }
-
-            items.push({
-                sku: sku || "",
-                barcode: barcode,
-                description: description,
-                bin_location: bin_location,
-                quantity: quantity
-            });
-        }
-
-        if(items.length === 0) {
-            alert("Inserisci almeno un articolo nel DDT.");
-            return;
-        }
-
-        const payload = {
-            merchant_id: merchantId,
-            doc_reference: docRef,
-            items: items
-        };
-
-        try {
-            const url = `/api/inbound/ddt?allow_shared_barcode=${forceShared}`;
-            const res = await fetch(url, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(payload)
-            });
-
-            if(res.status === 409) {
-                const conflictData = await res.json();
-                let promptMsg = `⚠️ CONFLITTO BARCODE CON ALTRI MANDANTI:\n\n`;
-                if (conflictData.detail && conflictData.detail.conflicts) {
-                    conflictData.detail.conflicts.forEach(c => {
-                        promptMsg += `• Barcode: ${c.barcode} (${c.description})\n   -> Già gestito per: "${c.other_merchant_name}" (SKU: ${c.other_sku})\n`;
-                    });
-                }
-                promptMsg += `\nVuoi confermare comunque il carico generando un NUOVO SKU dedicato a questo mandante?`;
-
-                if (confirm(promptMsg)) {
-                    await submitInboundDDT(true);
-                }
-                return;
-            }
-
-            if(res.ok) {
-                playBeep(900, 0.2);
-
-                const tb = document.getElementById("inboundHistoryBody");
-                if(tb.innerHTML.includes("Nessun carico")) {
-                    tb.innerHTML = "";
-                }
-
-                items.forEach(it => {
-                    tb.innerHTML = `<tr>
-                        <td class="fw-bold font-monospace text-dark">${docRef}</td>
-                        <td class="font-monospace fw-bold text-primary">${it.sku || 'Generato'}</td>
-                        <td class="font-monospace text-muted">${it.barcode}</td>
-                        <td>${it.description}</td>
-                        <td><span class="badge bg-light text-dark border">${it.bin_location}</span></td>
-                        <td class="text-center fw-bold text-success">+${it.quantity} pcs</td>
-                        <td><span class="badge bg-success">Caricato</span></td>
-                    </tr>` + tb.innerHTML;
-                });
-
-                alert(`DDT ${docRef} registrato con successo! ${items.length} articoli caricati a magazzino.`);
-                document.getElementById("inboundDocRef").value = "";
-                document.getElementById("inboundMerchant").value = "";
-                document.getElementById("inboundRowsBody").innerHTML = "";
-                addInboundRow();
-            } else {
-                const err = await res.json();
-                alert(formatApiError(err, "Errore durante la registrazione del DDT."));
-            }
-        } catch(e) {
-            console.error("Errore di rete:", e);
-            alert("Errore di connessione durante la registrazione del DDT.");
-        }
-    }
-
-    async function loadInventoryOperator() {
-        const merchantFilter = document.getElementById("filterInvMerchant").value;
-        let url = "/api/inventory";
-        if (merchantFilter) url += `?merchant_id=${merchantFilter}`;
-
-        try {
-            const res = await fetch(url);
-            if (!res.ok) {
-                const err = await res.json();
-                document.getElementById("inventoryTableBody").innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Errore caricamento: ${formatApiError(err)}</td></tr>`;
-                return;
-            }
-            cachedInventoryData = await res.json();
-            renderInventoryTable(cachedInventoryData);
-        } catch(e) {
-            console.error("Errore caricamento inventario:", e);
-            document.getElementById("inventoryTableBody").innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Errore di connessione durante il recupero dei dati di inventario.</td></tr>`;
-        }
-    }
-
-    function renderInventoryTable(items) {
-        const tbody = document.getElementById("inventoryTableBody");
-        if (!items || items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">Nessun articolo corrispondente ai criteri selezionati.</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = items.map((item, idx) => `
-            <tr>
-                <td class="fw-bold font-monospace"><span class="badge bg-light text-dark border">${item.bin_location}</span></td>
-                <td class="font-monospace text-primary fw-bold">${item.sku}</td>
-                <td class="font-monospace text-muted">${item.barcode}</td>
-                <td class="fw-semibold">${item.description}</td>
-                <td><span class="badge bg-secondary-subtle text-secondary-emphasis">${item.merchant_name}</span></td>
-                <td class="text-center fw-bold fs-6">${item.on_hand_qty} pcs</td>
-                <td class="text-center">
-                    ${item.on_hand_qty > 20 
-                        ? `<span class="badge bg-success">Disponibile</span>` 
-                        : (item.on_hand_qty > 0 ? `<span class="badge bg-warning text-dark">Scorta Bassa</span>` : `<span class="badge bg-danger">Esaurito</span>`)}
-                </td>
-                <td class="text-center">
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-warning text-dark fw-bold" onclick="openAdjustModalByIndex(${idx})" title="Rettifica quantità">
-                            <i class="bi bi-pencil-square me-1"></i> Rettifica
-                        </button>
-                        <button class="btn btn-outline-danger fw-bold" onclick="promptRemoveByIndex(${idx})" title="Rimuovi referenza e giacenza da questo mandante">
-                            <i class="bi bi-trash-fill me-1"></i> Cancella Prodotto
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `).join("");
-    }
-
-    function openAdjustModalByIndex(idx) {
-        const item = cachedInventoryData[idx];
-        if (!item) return;
-        document.getElementById("adjustModalSku").value = item.sku;
-        document.getElementById("adjustModalQty").value = item.on_hand_qty;
-        document.getElementById("adjustModalTitle").innerText = `Rettifica Giacenza: ${item.sku}`;
-        new bootstrap.Modal(document.getElementById("modalAdjustStock")).show();
-    }
-
-    async function promptRemoveByIndex(idx) {
-        const item = cachedInventoryData[idx];
-        if (!item) return;
-
-        const msg = `⚠️ ATTENZIONE: CANCELLAZIONE PRODOTTO DAL MANDANTE ⚠️\n\n` +
-            `Stai per eliminare la referenza ESCLUSIVAMENTE dalla giacenza di:\n` +
-            `🏢 Mandante: ${item.merchant_name}\n\n` +
-            `Dati articolo:\n` +
-            `• SKU Interno: ${item.sku}\n` +
-            `• Barcode: ${item.barcode}\n` +
-            `• Descrizione: ${item.description}\n` +
-            `• Giacenza attuale: ${item.on_hand_qty} pezzi\n\n` +
-            `Questa azione è IRREVERSIBILE e rimuove lo stock caricato per errore a questo committente.\n` +
-            `(Gli altri committenti con lo stesso prodotto non subiranno alcuna modifica).\n\n` +
-            `Vuoi procedere con la cancellazione definitiva?`;
-
-        if (!confirm(msg)) {
-            return;
-        }
-
-        try {
-            const res = await fetch(`/api/inventory/merchant-item/${encodeURIComponent(item.sku)}`, {
-                method: "DELETE"
+                body: JSON.stringify({ new_password, confirm_password })
             });
 
             if (res.ok) {
-                const data = await res.json();
-                playBeep(900, 0.2);
-                alert(data.message || `Referenza [${item.sku}] rimossa con successo.`);
-                await loadInventoryOperator();
+                alert("Password amministratore resettata con successo! Effettua nuovamente il login.");
+                await logoutOperator();
             } else {
                 const err = await res.json();
-                playBeep(200, 0.4);
-                alert(formatApiError(err, "Impossibile cancellare la referenza dal mandante."));
+                alert(formatApiError(err, "Errore durante il reset della password."));
             }
         } catch (e) {
-            console.error("Errore cancellazione referenza mandante:", e);
-            alert("Errore di connessione durante la richiesta di cancellazione.");
+            alert("Errore di connessione al server.");
         }
     }
 
-    function filterInventoryTable() {
-        const q = document.getElementById("filterInvText").value.toLowerCase();
-        const filtered = cachedInventoryData.filter(x => 
-            x.sku.toLowerCase().includes(q) || 
-            x.description.toLowerCase().includes(q) || 
-            x.barcode.includes(q) || 
-            x.bin_location.toLowerCase().includes(q)
-        );
-        renderInventoryTable(filtered);
-    }
-
-    function stepCount(delta) {
-        const input = document.getElementById("adjustModalQty");
-        let val = parseInt(input.value) || 0;
-        if (val + delta >= 0) input.value = val + delta;
-    }
-
-    async function submitAdjustModal() {
-        const sku = document.getElementById("adjustModalSku").value;
-        const qty = parseInt(document.getElementById("adjustModalQty").value);
-        const reason = document.getElementById("adjustModalReason").value;
-
-        if (isNaN(qty) || qty < 0) return;
-
+    // --- ANAGRAFICA MANDANTI (FASE 5) ---
+    let merchantList = [];
+    async function loadMerchants() {
         try {
-            const res = await fetch("/api/inventory/adjust", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({sku: sku, new_quantity: qty, reason: reason})
-            });
-
-            if (res.ok) {
-                playBeep(900, 0.15);
-                bootstrap.Modal.getInstance(document.getElementById("modalAdjustStock")).hide();
-                await loadInventoryOperator();
-            } else {
-                const err = await res.json();
-                alert(formatApiError(err, "Errore durante la rettifica della scorta."));
-            }
-        } catch(e) {
-            alert("Errore di connessione durante la rettifica della scorta.");
-        }
-    }
-
-    function printInventoryReportOp() {
-        const selElem = document.getElementById("filterInvMerchant");
-        const merchantName = selElem.value ? selElem.selectedOptions[0].text : "Tutti i Mandanti";
-        
-        document.getElementById("prnDocTitle").innerText = "VERBALE UFFICIALE DI INVENTARIO MERCI";
-        document.getElementById("prnSubTitle").innerText = "Rilevazione e Allineamento Scorte Fisiche a Scaffale";
-        document.getElementById("prnId").innerText = "#INV-" + new Date().toISOString().slice(0,10).replace(/-/g,"");
-        document.getElementById("prnDate").innerText = new Date().toLocaleString();
-        document.getElementById("prnCustomHeader").innerHTML = `
-            <div><b>Mandante:</b> ${merchantName}</div>
-            <div><b>Referenze SKU:</b> ${cachedInventoryData.length}</div>
-            <div><b>Totale Pezzi a Scaffale:</b> <b style="color: #15803d;">${cachedInventoryData.reduce((a,c) => a + c.on_hand_qty, 0)} pcs</b></div>
-        `;
-        document.getElementById("prnTableHead").innerHTML = `
-            <tr>
-                <th style="width: 5%; text-align: center;">#</th>
-                <th style="width: 15%;">Ubicazione</th>
-                <th style="width: 20%;">Codice SKU</th>
-                <th style="width: 20%;">Barcode (EAN)</th>
-                <th style="width: 30%;">Descrizione Merce</th>
-                <th style="width: 10%; text-align: center;">Giacenza</th>
-            </tr>
-        `;
-        document.getElementById("prnTableBody").innerHTML = cachedInventoryData.map((it, idx) => `
-            <tr>
-                <td style="text-align: center;">${idx+1}</td>
-                <td style="text-align: center; font-weight: bold;">${it.bin_location}</td>
-                <td style="font-family: monospace; font-weight: bold; color: #0284c7;">${it.sku}</td>
-                <td style="font-family: monospace;">${it.barcode}</td>
-                <td>${it.description}</td>
-                <td style="text-align: center; font-weight: bold;">${it.on_hand_qty} pcs</td>
-            </tr>
-        `).join("");
-
-        const cleanMch = merchantName.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
-        const dateStamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
-        document.title = `INVENTARIO_${cleanMch}_${dateStamp}`;
-        
-        window.print();
-        
-        setTimeout(() => { document.title = DEFAULT_APP_TITLE; }, 1000);
-    }
-
-    async function openNewOrderModal() {
-        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
-        if(!selMerchant || isNaN(selMerchant)) {
-            alert("⚠️ Seleziona prima un Mandante dal menu a tendina in alto!");
-            document.getElementById("selectPickingMerchant").focus();
-            return;
-        }
-
-        const ord = prompt("Inserisci il Numero del Documento / Ordine di Spedizione:");
-        if (!ord || !ord.trim()) return;
-
-        const ordClean = ord.trim();
-        const res = await fetch(`/api/orders/check/${encodeURIComponent(ordClean)}?merchant_id=${selMerchant}`);
-        const check = await res.json();
-
-        if (check.exists) {
-            playBeep(200, 0.4);
-            alert(`Il documento "${ordClean}" risulta già evaso in data ${check.processed_at}!`);
-            return;
-        }
-
-        currentOrder = ordClean;
-        document.getElementById("activeOrderNumber").value = currentOrder;
-        orderItems = {};
-        mode = "ORDER";
-        document.getElementById("scanQtyInput").value = "1";
-        updateModeUI();
-        renderTable();
-        document.getElementById("barcodeInput").focus();
-        playBeep(900, 0.1);
-    }
-
-    function clearCurrentOrder() {
-        resetPickingCompletely();
-    }
-
-    async function toggleMode() {
-        if (!currentOrder) {
-            alert("Apri prima un documento cliccando su 'Nuovo (F1)'!");
-            return;
-        }
-
-        if (mode === "ORDER") {
-            const keys = Object.keys(orderItems);
-            if (keys.length === 0) {
-                alert("Inserisci almeno un articolo nella distinta prima di avviare il prelievo a scaffale!");
-                return;
-            }
-
-            const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
-            const payloadValidate = {
-                order_number: currentOrder,
-                merchant_id: selMerchant,
-                items: keys.map(sku => ({
-                    sku: sku,
-                    expected_qty: orderItems[sku].expected_qty
-                }))
-            };
-
-            try {
-                const res = await fetch("/api/orders/validate-ddt", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(payloadValidate)
-                });
-
-                if (!res.ok) {
-                    playBeep(200, 0.4);
-                    const errData = await res.json();
-                    
-                    if (errData.detail && errData.detail.discrepancies) {
-                        let msg = `⚠️ BLOCCO SPEDIZIONE DDT: Disponibilità magazzino insufficiente!\n\n`;
-                        errData.detail.discrepancies.forEach(d => {
-                            if (d.deficit) {
-                                msg += `• [${d.sku}] Richiesti: ${d.requested_qty} | A Scaffale: ${d.available_qty} (Mancano: ${d.deficit} pz)\n`;
-                            } else {
-                                msg += `• [${d.sku}] ${d.error}\n`;
-                            }
-                        });
-                        msg += `\nRettifica le quantità nella distinta o carica la merce in entrata prima di procedere.`;
-                        alert(msg);
-                    } else {
-                        alert(formatApiError(errData, "Errore durante la convalida preventiva del DDT."));
-                    }
-                    return;
-                }
-
-                playBeep(1100, 0.15);
-                mode = "PICKING";
-            } catch(e) {
-                alert("Impossibile contattare il server per la verifica delle giacenze.");
-                return;
-            }
-        } else {
-            mode = "ORDER";
-        }
-
-        document.getElementById("scanQtyInput").value = "1";
-        updateModeUI();
-        renderTable();
-        document.getElementById("barcodeInput").focus();
-    }
-
-    function updateModeUI() {
-        const btn = document.getElementById("btnToggleMode"), card = document.getElementById("statusCard");
-        const desc = document.getElementById("modeDescription");
-
-        if (mode === "ORDER") {
-            btn.innerText = "FASE: DISTINTA DDT (F12)";
-            btn.className = "btn btn-outline-primary w-100 fw-bold border-2";
-            card.className = "card card-custom p-3 mb-3 mode-order";
-            desc.innerHTML = "Fase 1 di 2: <b>Caricamento Distinta</b> (scansiona o inserisci gli articoli e le quantità previste dal documento).";
-        } else {
-            btn.innerText = "FASE: PRELIEVO A SCAFFALE (F12)";
-            btn.className = "btn btn-outline-warning text-dark w-100 fw-bold border-2";
-            card.className = "card card-custom p-3 mb-3 mode-picking";
-            desc.innerHTML = "Fase 2 di 2: <b>Prelievo Fisico a Scaffale</b> (scansiona gli articoli prelevati per verificarne la corrispondenza con la distinta).";
-        }
-    }
-
-    function triggerBarcodeScan() {
-        const evt = new KeyboardEvent('keypress', {'key': 'Enter'});
-        document.getElementById("barcodeInput").dispatchEvent(evt);
-    }
-
-    document.getElementById("barcodeInput").addEventListener("keypress", async (e) => {
-        if (e.key !== "Enter") return;
-        e.preventDefault();
-        const raw = e.target.value.trim();
-        e.target.value = "";
-        if (!raw) return;
-
-        const selMerchant = parseInt(document.getElementById("selectPickingMerchant").value);
-        if(!selMerchant || isNaN(selMerchant)) {
-            playBeep(200, 0.4);
-            alert("⚠️ Seleziona prima un Mandante dal menu a tendina in alto prima di scansionare!");
-            document.getElementById("selectPickingMerchant").focus();
-            return;
-        }
-
-        if (!currentOrder) {
-            alert("Nessun documento attivo. Clicca su 'Nuovo (F1)' prima di iniziare a scansionare.");
-            return;
-        }
-
-        let qty = parseInt(document.getElementById("scanQtyInput").value) || 1;
-        let code = raw;
-
-        if(raw.includes("*")) {
-            const p = raw.split("*");
-            if(!isNaN(p[0])) { qty = parseInt(p[0]); code = p[1].trim(); }
-        }
-
-        const res = await fetch("/api/items/resolve", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                code: code,
-                merchant_id: selMerchant
-            })
-        });
-
-        if (!res.ok) { 
-            playBeep(200, 0.3); 
-            alert(`Codice [${code}] non trovato nel catalogo per questo mandante.`);
-            return; 
-        }
-
-        const item = await res.json();
-
-        if(item.merchant_id !== selMerchant){
-            playBeep(200, 0.4);
-            alert(`Attenzione: L'articolo appartiene a ${item.merchant_name}, non al mandante selezionato per questo documento!`);
-            return;
-        }
-
-        const sku = item.sku;
-        if (mode === "ORDER") {
-            const currentExpected = orderItems[sku] ? orderItems[sku].expected_qty : 0;
-            const newTotalExpected = currentExpected + qty;
-
-            if (newTotalExpected > item.on_hand_qty) {
-                playBeep(200, 0.4);
-                alert(`⚠️ Giacenza insufficiente a magazzino per [${sku}]!\n` +
-                      `Disponibili a scaffale (${item.bin_location}): ${item.on_hand_qty} pz\n` +
-                      `Richiesti dalla distinta: ${newTotalExpected} pz (Mancano: ${newTotalExpected - item.on_hand_qty} pz)`);
-                return;
-            }
-
-            if (orderItems[sku]) {
-                orderItems[sku].expected_qty = newTotalExpected;
-            } else {
-                orderItems[sku] = {
-                    barcode: item.barcode, 
-                    description: item.description, 
-                    bin_location: item.bin_location, 
-                    on_hand_qty: item.on_hand_qty,
-                    expected_qty: qty, 
-                    picked_qty: 0
-                };
-            }
-            playBeep(800, 0.08);
-        } else {
-            if (!orderItems[sku]) { 
-                playBeep(200, 0.3); 
-                alert(`Articolo ${sku} non presente nella distinta di questo documento!`);
-                return; 
-            }
-            if (orderItems[sku].picked_qty + qty > orderItems[sku].expected_qty) { 
-                playBeep(200, 0.3); 
-                alert(`Allarme Eccedenza: stai prelevando più pezzi di quelli previsti per l'articolo ${sku}! (Previsti: ${orderItems[sku].expected_qty}, Già prelevati: ${orderItems[sku].picked_qty})`);
-                return; 
-            }
-            orderItems[sku].picked_qty += qty;
-            playBeep(1000, 0.08);
-        }
-
-        document.getElementById("scanQtyInput").value = "1";
-        renderTable();
-        checkCompletion();
-    });
-
-    function renderTable() {
-        const tbody = document.getElementById("orderTableBody");
-        const keys = Object.keys(orderItems);
-        if (keys.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">Nessun documento attivo. Clicca su <b>Nuovo (F1)</b> per iniziare una spedizione.</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = keys.map(sku => {
-            const r = orderItems[sku];
-            const isDone = (mode === "PICKING" && r.picked_qty === r.expected_qty);
-            const isProg = (mode === "PICKING" && r.picked_qty > 0 && !isDone);
-            const rowClass = isDone ? 'row-ok' : (isProg ? 'row-prog' : '');
-            const badgeHtml = mode === "PICKING" 
-                ? (isDone ? `<span class="badge bg-success">COMPLETATO</span>` : `<span class="badge bg-warning text-dark">${r.picked_qty}/${r.expected_qty}</span>`)
-                : `<span class="badge bg-primary">IN DISTINTA</span>`;
-
-            return `<tr class="${rowClass}">
-                <td class="font-monospace fw-bold">${r.bin_location}</td>
-                <td class="font-monospace text-primary fw-bold">${sku}</td>
-                <td class="font-monospace text-muted">${r.barcode}</td>
-                <td class="fw-semibold">${r.description}</td>
-                <td class="text-center fw-bold text-secondary fs-6">${r.on_hand_qty !== undefined ? r.on_hand_qty : '-'}</td>
-                <td class="text-center fw-bold fs-6">${r.expected_qty}</td>
-                <td class="text-center fw-bold text-success fs-6">${r.picked_qty}</td>
-                <td class="text-center">${badgeHtml}</td>
-                <td class="text-center">
-                    <button class="btn btn-sm btn-outline-danger" onclick="delete orderItems['${sku}']; renderTable(); checkCompletion();" title="Elimina riga">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            </tr>`;
-        }).join("");
-    }
-
-    function checkCompletion() {
-        if (mode !== "PICKING") return;
-        const keys = Object.keys(orderItems);
-        const done = keys.length > 0 && keys.every(k => orderItems[k].picked_qty === orderItems[k].expected_qty);
-        document.getElementById("btnFinalizeOrder").classList.toggle("d-none", !done);
-        if(done) playBeep(1200, 0.2);
-    }
-
-    async function finalizeOrder() {
-        const selSelect = document.getElementById("selectPickingMerchant");
-        const selMerchant = parseInt(selSelect.value);
-        const merchantText = selSelect.options[selSelect.selectedIndex] ? selSelect.options[selSelect.selectedIndex].text : "N/D";
-        
-        const keys = Object.keys(orderItems);
-        const totalPieces = keys.reduce((acc, sku) => acc + orderItems[sku].picked_qty, 0);
-
-        const confirmMsg = 
-            `📦 CONFERMA SPEDIZIONE & SCARICO MAGAZZINO\n\n` +
-            `• Documento / Ordine: ${currentOrder}\n` +
-            `• Mandante: ${merchantText}\n` +
-            `• Referenze distinte: ${keys.length}\n` +
-            `• Pezzi totali da evadere: ${totalPieces} pz\n\n` +
-            `Procedere con la finalizzazione definitiva dell'ordine e la generazione del documento?`;
-
-        if (!confirm(confirmMsg)) {
-            return;
-        }
-
-        const btn = document.getElementById("btnFinalizeOrder");
-        btn.disabled = true;
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Elaborazione...`;
-
-        const itemsList = keys.map(sku => ({
-            sku: sku,
-            barcode: orderItems[sku].barcode,
-            description: orderItems[sku].description,
-            bin_location: orderItems[sku].bin_location,
-            expected_qty: orderItems[sku].expected_qty,
-            picked_qty: orderItems[sku].picked_qty
-        }));
-
-        try {
-            const res = await fetch("/api/orders/fulfill", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({order_number: currentOrder, merchant_id: selMerchant, items: itemsList})
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                preparePrintArea(data.order_id, currentOrder, merchantText, data.timestamp, itemsList);
-
-                const cleanMerchant = merchantText.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
-                const cleanOrder = currentOrder.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
-                const timeStamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
-                const uniquePdfName = `DDT_${cleanMerchant}_${cleanOrder}_SPED${data.order_id}_${timeStamp}`;
-
-                document.title = uniquePdfName;
-                window.print();
-
-                setTimeout(() => {
-                    document.title = DEFAULT_APP_TITLE;
-                }, 1000);
-
-                currentOrder = "";
-                orderItems = {};
-                document.getElementById("activeOrderNumber").value = "";
-                document.getElementById("selectPickingMerchant").value = "";
-                btn.classList.add("d-none");
-                mode = "ORDER";
-                updateModeUI();
-                renderTable();
-            } else {
-                const err = await res.json();
-                alert(formatApiError(err, "Errore durante l'evasione della spedizione."));
-            }
-        } catch(e) {
-            alert("Errore di connessione durante l'evasione dell'ordine.");
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-        }
-    }
-
-    function startCameraScanner() {
-        if (!currentOrder) {
-            alert("Apri prima un documento con 'Nuovo (F1)'!");
-            return;
-        }
-        activeCameraDestination = "picking";
-        openCameraModal();
-    }
-
-    function startRowCameraScan(btn) {
-        targetInboundRow = btn.closest("tr");
-        activeCameraDestination = "inbound_row";
-        openCameraModal();
-    }
-
-    function openCameraModal() {
-        const modal = new bootstrap.Modal(document.getElementById("cameraModal"));
-        modal.show();
-
-        html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 15, qrbox: { width: 260, height: 160 }, aspectRatio: 1.0, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
-
-        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
-        .then(() => checkTorchSupport())
-        .catch(err => {
-            console.error(err);
-            alert("Accesso alla fotocamera negato o dispositivo non disponibile.");
-            stopCameraScanner();
-        });
-    }
-
-    async function onScanSuccess(decodedText) {
-        playBeep(1100, 0.12);
-        if (activeCameraDestination === "picking") {
-            document.getElementById("barcodeInput").value = decodedText.trim();
-            triggerBarcodeScan();
-        } else if (activeCameraDestination === "inbound_row" && targetInboundRow) {
-            const bcInput = targetInboundRow.querySelector(".row-barcode");
-            bcInput.value = decodedText.trim();
-            resolveInboundBarcode(bcInput);
-            stopCameraScanner();
-        }
-    }
-
-    function stopCameraScanner() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => {
-                html5QrCode.clear();
-                const m = bootstrap.Modal.getInstance(document.getElementById("cameraModal"));
-                if (m) m.hide();
-                if(activeCameraDestination === "picking") document.getElementById("barcodeInput").focus();
-            }).catch(() => {});
-        } else {
-            const m = bootstrap.Modal.getInstance(document.getElementById("cameraModal"));
-            if (m) m.hide();
-            if(activeCameraDestination === "picking") document.getElementById("barcodeInput").focus();
-        }
-    }
-
-    function checkTorchSupport() {
-        try {
-            html5QrCode.getRunningTrackCameraCapabilities().then(capabilities => {
-                if (capabilities.torch) document.getElementById("btnToggleTorch").classList.remove("d-none");
-            });
-        } catch(e) {}
-    }
-
-    function toggleCameraTorch() {
-        isTorchOn = !isTorchOn;
-        html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] });
-    }
-
-    async function loadHistory(showAll = false) {
-        let url = "/api/orders/history";
-        const params = [];
-        const m = document.getElementById("historyMerchant").value;
-        const dFrom = document.getElementById("historyDateFrom").value;
-        const dTo = document.getElementById("historyDateTo").value;
-
-        if (m) params.push(`merchant_id=${encodeURIComponent(m)}`);
-        if (!showAll && dFrom) params.push(`date_from=${encodeURIComponent(dFrom)}`);
-        if (!showAll && dTo) params.push(`date_to=${encodeURIComponent(dTo)}`);
-
-        if (params.length > 0) {
-            url += `?${params.join("&")}`;
-        }
-
-        try {
-            const res = await fetch(url);
-            const list = await res.json();
-            const tbody = document.getElementById("historyTableBody");
-            if(!list || list.length === 0){
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Nessuna spedizione trovata per i criteri selezionati.</td></tr>`;
-                document.getElementById("historyDetailBody").innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">Nessuna spedizione selezionata.</td></tr>`;
-                document.getElementById("btnPrintHistory").classList.add("d-none");
-                return;
-            }
-            tbody.innerHTML = list.map(d => `<tr style="cursor:pointer;" onclick="loadDetail(${d.id})">
-                <td>#${d.id}</td>
-                <td class="fw-bold text-primary">${d.order_number}</td>
-                <td>${d.merchant}</td>
-                <td class="small text-muted">${d.processed_at}</td>
-                <td><span class="badge bg-success">${d.total_units} pcs</span></td>
-            </tr>`).join("");
-        } catch(e) {
-            console.error("Errore caricamento storico:", e);
-        }
-    }
-
-    function resetHistoryFilters() {
-        document.getElementById("historyMerchant").value = "";
-        document.getElementById("historyDateFrom").value = "";
-        document.getElementById("historyDateTo").value = "";
-        loadHistory(true);
-    }
-
-    async function loadDetail(id) {
-        try {
-            const res = await fetch(`/api/orders/${id}`);
-            if(!res.ok) return;
-            selectedHistoryData = await res.json();
-            document.getElementById("detailTitle").innerText = `Spedizione: ${selectedHistoryData.header.order_number} (${selectedHistoryData.header.merchant})`;
-            document.getElementById("btnPrintHistory").classList.remove("d-none");
-            document.getElementById("historyDetailBody").innerHTML = selectedHistoryData.lines.map(r => `<tr>
-                <td class="font-monospace fw-bold text-primary">${r.sku}</td>
-                <td class="font-monospace text-muted">${r.barcode}</td>
-                <td>${r.description}</td>
-                <td><span class="badge bg-light text-dark border">${r.bin_location}</span></td>
-                <td class="text-center">${r.expected_qty}</td>
-                <td class="text-center fw-bold text-success">${r.picked_qty}</td>
-            </tr>`).join("");
-        } catch(e) {
-            console.error("Errore dettaglio ordine:", e);
-        }
-    }
-
-    function printSelectedHistory() {
-        if(!selectedHistoryData) return;
-        preparePrintArea(selectedHistoryData.header.id, selectedHistoryData.header.order_number, selectedHistoryData.header.merchant, selectedHistoryData.header.processed_at, selectedHistoryData.lines);
-        
-        const cleanMerchant = selectedHistoryData.header.merchant.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
-        const cleanOrder = selectedHistoryData.header.order_number.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
-        document.title = `RISTAMPA_DDT_${cleanMerchant}_${cleanOrder}_SPED${selectedHistoryData.header.id}`;
-        
-        window.print();
-        
-        setTimeout(() => {
-            document.title = DEFAULT_APP_TITLE;
-        }, 1000);
-    }
-
-    function preparePrintArea(id, orderNum, merchantName, dtStr, rows) {
-        document.getElementById("prnDocTitle").innerText = "DOCUMENTO DI TRASPORTO / PACKING SLIP";
-        document.getElementById("prnSubTitle").innerText = "Verbale Ufficiale di Spedizione e Conformità Merci";
-        document.getElementById("prnId").innerText = "#" + id;
-        document.getElementById("prnDate").innerText = dtStr;
-        document.getElementById("prnMerchant").innerText = merchantName;
-        document.getElementById("prnOrderNum").innerText = orderNum;
-        document.getElementById("prnQty").innerText = rows.reduce((a, c) => a + c.picked_qty, 0) + " pcs";
-
-        document.getElementById("prnTableHead").innerHTML = `
-            <tr>
-                <th style="width: 5%; text-align: center;">#</th>
-                <th style="width: 20%;">Codice SKU</th>
-                <th style="width: 20%;">Barcode (EAN)</th>
-                <th style="width: 35%;">Descrizione Merce</th>
-                <th style="width: 10%; text-align: center;">Ubicaz.</th>
-                <th style="width: 10%; text-align: center;">Prelevato</th>
-            </tr>
-        `;
-        document.getElementById("prnTableBody").innerHTML = rows.map((r, i) => `<tr>
-            <td style="text-align: center;">${i + 1}</td>
-            <td style="font-family: monospace; font-weight: bold; color: #0284c7;">${r.sku}</td>
-            <td style="font-family: monospace;">${r.barcode}</td>
-            <td>${r.description}</td>
-            <td style="text-align: center;">${r.bin_location}</td>
-            <td style="text-align: center; font-weight: bold; color: #15803d;">${r.picked_qty}</td>
-        </tr>`).join("");
+            const res = await fetch("/api/merchants"); merchantList = await res.json();
+            const opts = `<option value="">-- TUTTI I MANDANTI --</option>` + merchantList.map(m => `<option value="${m.id}">${m.company_name} (${m.account_code})</option>`).join("");
+            document.getElementById("selectPickingMerchant").innerHTML = opts; document.getElementById("inboundMerchant").innerHTML = opts;
+            document.getElementById("historyMerchant").innerHTML = opts; document.getElementById("filterInvMerchant").innerHTML = opts;
+        } catch(e) { console.error(e); }
     }
 
     async function renderMerchantsDirectory() {
         try {
-            const res = await fetch("/api/merchants");
-            const list = await res.json();
+            const res = await fetch("/api/merchants"); const list = await res.json();
             const tb = document.getElementById("merchantsTableBody");
-            if(list.length === 0){
-                tb.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">Nessun mandante attivo registrato.</td></tr>`;
-                return;
-            }
-            tb.innerHTML = list.map(m => `
-                <tr>
-                    <td class="text-muted fw-bold">#${m.id}</td>
-                    <td class="font-monospace fw-bold text-primary">${m.account_code}</td>
-                    <td class="fw-semibold">${m.company_name}</td>
-                    <td class="text-center"><span class="badge bg-light text-dark border">${m.sku_count || 0} Referenze</span></td>
-                </tr>
-            `).join("");
-        } catch(e) {
-            console.error("Errore caricamento rubrica mandanti:", e);
-        }
+            tb.innerHTML = list.map(m => `<tr><td class="font-monospace fw-bold text-primary"><span class="text-muted">#${m.id}</span> ${m.account_code}</td><td class="fw-semibold">${m.company_name}<br><small class="text-muted"><i class="bi bi-envelope"></i> ${m.email || 'N.D.'} | <i class="bi bi-telephone"></i> ${m.phone || 'N.D.'}</small></td><td class="text-center"><span class="badge bg-light text-dark border">${m.sku_count || 0} Articoli</span></td><td class="text-center"><button class="btn btn-sm btn-outline-danger shadow-sm fw-bold" onclick="openResetPinModal(${m.id})">Resetta PIN</button></td></tr>`).join("");
+        } catch(e) {}
     }
 
     async function saveNewMerchant() {
-        const code = document.getElementById("newMerchantCode").value.trim().toUpperCase();
-        const name = document.getElementById("newMerchantName").value.trim();
-        const pin = document.getElementById("newMerchantPin").value.trim();
-
-        if(!code || !name || !pin){
-            alert("Tutti i campi (Codice Univoco, Ragione Sociale, PIN) sono obbligatori!");
-            return;
-        }
-
+        const payload = { account_code: document.getElementById("newMerchantCode").value.trim().toUpperCase(), company_name: document.getElementById("newMerchantName").value.trim(), email: document.getElementById("newMerchantEmail").value.trim() || null, phone: document.getElementById("newMerchantPhone").value.trim() || null, pin: document.getElementById("newMerchantPin").value.trim() };
+        const pinConf = document.getElementById("newMerchantPinConfirm").value.trim();
+        if(!payload.account_code || !payload.company_name || !payload.pin) { alert("Compila Codice, Nome e PIN."); return; }
+        if(payload.pin.length < 8) { alert("Il PIN deve essere di almeno 8 caratteri."); return; }
+        if(payload.pin !== pinConf) { alert("I PIN non coincidono."); return; }
         try {
-            const res = await fetch("/api/merchants", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({account_code: code, company_name: name, pin: pin})
-            });
-
-            if(res.ok){
-                playBeep(900, 0.15);
-                alert(`Mandante '${name}' registrato e attivato con successo!`);
-                document.getElementById("newMerchantCode").value = "";
-                document.getElementById("newMerchantName").value = "";
-                document.getElementById("newMerchantPin").value = "";
-                await loadMerchants();
-                renderMerchantsDirectory();
-            } else {
-                const err = await res.json();
-                alert(formatApiError(err, "Errore durante la registrazione del mandante."));
-            }
-        } catch(e) {
-            alert("Errore di connessione durante la registrazione del mandante.");
-        }
+            const res = await fetch("/api/merchants", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
+            if(res.ok) { alert("Mandante creato!"); ["Code", "Name", "Email", "Phone", "Pin", "PinConfirm"].forEach(id => document.getElementById("newMerchant" + id).value = ""); loadMerchants(); renderMerchantsDirectory(); } else { alert(formatApiError(await res.json())); }
+        } catch(e) { alert("Errore di rete."); }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        loadMerchants();
-    });
+    function openResetPinModal(id) {
+        document.getElementById("resetPinMerchantId").value = id; document.getElementById("resetPinNew").value = ""; document.getElementById("resetPinConfirm").value = "";
+        new bootstrap.Modal(document.getElementById("modalResetPin")).show();
+    }
+
+    async function submitResetPin() {
+        const id = document.getElementById("resetPinMerchantId").value, p1 = document.getElementById("resetPinNew").value, p2 = document.getElementById("resetPinConfirm").value;
+        if(p1.length < 8) { alert("Minimo 8 caratteri."); return; } if(p1 !== p2) { alert("I PIN non coincidono."); return; }
+        try {
+            const res = await fetch(`/api/merchants/${id}/reset-pin`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({new_pin: p1, confirm_pin: p2}) });
+            if(res.ok) { alert("PIN resettato con successo."); bootstrap.Modal.getInstance(document.getElementById("modalResetPin")).hide(); } else { alert("Errore nel reset."); }
+        } catch(e) { alert("Errore di rete."); }
+    }
+
+    // --- CONFIGURAZIONE SMTP (FASE 6) ---
+    async function loadSmtpConfig() {
+        try {
+            const res = await fetch("/api/config/smtp");
+            if (res.ok) {
+                const c = await res.json();
+                ["Host","Port","User","Pass","SenderEmail","SenderName","PortalUrl"].forEach(k => {
+                    const el = document.getElementById("smtp"+k);
+                    if(el && c["smtp_"+k.toLowerCase()] !== undefined) el.value = c["smtp_"+k.toLowerCase()];
+                    else if(el && c[k.replace(/([A-Z])/g, '_$1').toLowerCase().substring(1)] !== undefined) el.value = c[k.replace(/([A-Z])/g, '_$1').toLowerCase().substring(1)];
+                });
+                document.getElementById("smtpTls").checked = c.use_tls;
+            }
+        } catch (e) {}
+    }
+
+    async function saveSmtpConfig() {
+        const payload = { smtp_host: document.getElementById("smtpHost").value.trim(), smtp_port: parseInt(document.getElementById("smtpPort").value) || 587, smtp_user: document.getElementById("smtpUser").value.trim(), smtp_password: document.getElementById("smtpPass").value, sender_email: document.getElementById("smtpSenderEmail").value.trim(), sender_name: document.getElementById("smtpSenderName").value.trim(), portal_base_url: document.getElementById("smtpPortalUrl").value.trim(), use_tls: document.getElementById("smtpTls").checked };
+        try {
+            const res = await fetch("/api/config/smtp", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
+            if (res.ok) { alert("Configurazione SMTP salvata."); } else { alert("Errore nel salvataggio."); }
+        } catch(e) { alert("Errore di connessione."); }
+    }
+
+    // --- FASE 1: PICKING ---
+    let mode = "ORDER", currentOrder = "", orderItems = {};
+    window.addEventListener("keydown", (e) => { if(e.key === "F1"){ e.preventDefault(); openNewOrderModal(); } if(e.key === "F12"){ e.preventDefault(); toggleMode(); } });
+
+    async function openNewOrderModal() {
+        const m = parseInt(document.getElementById("selectPickingMerchant").value);
+        if(!m) { alert("Seleziona prima un mandante!"); return; }
+        const ord = prompt("Inserisci Numero Documento/Ordine:"); if(!ord || !ord.trim()) return;
+        const res = await fetch(`/api/orders/check/${encodeURIComponent(ord.trim())}?merchant_id=${m}`); const check = await res.json();
+        if (check.exists) { alert(`Documento già evaso il ${check.processed_at}!`); return; }
+        currentOrder = ord.trim(); document.getElementById("activeOrderNumber").value = currentOrder; orderItems = {}; mode = "ORDER"; updateModeUI(); renderTable();
+    }
+
+    function toggleMode() {
+        if(!currentOrder) { alert("Apri prima un documento."); return; }
+        if(mode === "ORDER") { if(Object.keys(orderItems).length === 0) { alert("Inserisci articoli in distinta."); return; } mode = "PICKING"; playBeep(1100, 0.15); } else { mode = "ORDER"; }
+        updateModeUI(); renderTable();
+    }
+
+    function updateModeUI() {
+        const btn = document.getElementById("btnToggleMode");
+        if(mode === "ORDER") { btn.innerText = "FASE: DISTINTA DDT (F12)"; btn.className = "btn btn-outline-primary w-100 fw-bold border-2"; }
+        else { btn.innerText = "FASE: PRELIEVO (F12)"; btn.className = "btn btn-outline-warning w-100 fw-bold border-2 text-dark"; }
+    }
+
+    function adjustScanQty(d) { let v = parseInt(document.getElementById("scanQtyInput").value)||1; v+=d; document.getElementById("scanQtyInput").value = v<1?1:v; }
+
+    function triggerBarcodeScan() { const v = document.getElementById("barcodeInput").value.trim(); document.getElementById("barcodeInput").value = ""; if(v) processBarcode(v); }
+    document.getElementById("barcodeInput").addEventListener("keypress", (e) => { if(e.key === "Enter") triggerBarcodeScan(); });
+
+    async function processBarcode(raw) {
+        const m = parseInt(document.getElementById("selectPickingMerchant").value);
+        if(!m || !currentOrder) { alert("Mandante o Documento mancanti."); return; }
+        let qty = parseInt(document.getElementById("scanQtyInput").value)||1, code = raw;
+        if(raw.includes("*")) { const p = raw.split("*"); qty = parseInt(p[0]); code = p[1].trim(); }
+        try {
+            const res = await fetch("/api/items/resolve", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({code:code, merchant_id:m}) });
+            if(!res.ok) { alert("Articolo non trovato."); return; }
+            const item = await res.json();
+            if(item.merchant_id !== m) { alert(`L'articolo è di ${item.merchant_name}. Non autorizzato.`); return; }
+            const sku = item.sku;
+            if(mode === "ORDER") {
+                const exp = orderItems[sku] ? orderItems[sku].expected_qty : 0;
+                if(exp + qty > item.on_hand_qty) { alert(`Giacenza insufficiente per [${sku}]. Scaffale: ${item.on_hand_qty}`); return; }
+                if(orderItems[sku]) orderItems[sku].expected_qty += qty;
+                else orderItems[sku] = {barcode:item.barcode, description:item.description, bin_location:item.bin_location, on_hand_qty:item.on_hand_qty, expected_qty:qty, picked_qty:0};
+                playBeep(800,0.08);
+            } else {
+                if(!orderItems[sku]) { alert("Articolo non in distinta!"); return; }
+                if(orderItems[sku].picked_qty + qty > orderItems[sku].expected_qty) { alert("Eccedenza prelievo!"); return; }
+                orderItems[sku].picked_qty += qty; playBeep(1000,0.08);
+            }
+            document.getElementById("scanQtyInput").value = "1"; renderTable();
+        } catch(e) {}
+    }
+
+    function renderTable() {
+        const tb = document.getElementById("orderTableBody"), keys = Object.keys(orderItems);
+        if(keys.length === 0) { tb.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Nessun articolo.</td></tr>`; document.getElementById("btnFinalizeOrder").classList.add("d-none"); return; }
+        tb.innerHTML = keys.map(sku => {
+            const r = orderItems[sku], done = r.picked_qty === r.expected_qty, prog = r.picked_qty > 0 && !done;
+            return `<tr class="${done?'row-ok':(prog?'row-prog':'')}"><td>${r.bin_location}</td><td class="fw-bold">${sku}</td><td>${r.barcode}</td><td>${r.description}</td><td class="text-center">${r.on_hand_qty}</td><td class="text-center fw-bold">${r.expected_qty}</td><td class="text-center fw-bold text-success">${r.picked_qty}</td><td class="text-center">${mode==="PICKING"?(done?'<span class="badge bg-success">OK</span>':`<span class="badge bg-warning text-dark">${r.picked_qty}/${r.expected_qty}</span>`):'<span class="badge bg-primary">IN DISTINTA</span>'}</td><td class="text-center"><button class="btn btn-sm btn-outline-danger" onclick="delete orderItems['${sku}']; renderTable();"><i class="bi bi-trash"></i></button></td></tr>`;
+        }).join("");
+        if(mode==="PICKING" && keys.every(k => orderItems[k].picked_qty === orderItems[k].expected_qty)) { document.getElementById("btnFinalizeOrder").classList.remove("d-none"); playBeep(1200,0.2); }
+        else document.getElementById("btnFinalizeOrder").classList.add("d-none");
+    }
+
+    function resetPickingCompletely() { if(confirm("Annullare l'ordine in corso?")) { currentOrder = ""; orderItems = {}; document.getElementById("activeOrderNumber").value = ""; document.getElementById("selectPickingMerchant").value = ""; mode = "ORDER"; updateModeUI(); renderTable(); } }
+
+    async function finalizeOrder() {
+        const btn = document.getElementById("btnFinalizeOrder"), mId = parseInt(document.getElementById("selectPickingMerchant").value);
+        if(!confirm("Confermi la finalizzazione e lo scarico dal magazzino?")) return;
+        btn.disabled = true; const origHtml = btn.innerHTML; btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Elaborazione...`;
+        
+        const itemsList = Object.keys(orderItems).map(s => ({sku:s, barcode:orderItems[s].barcode, description:orderItems[s].description, bin_location:orderItems[s].bin_location, expected_qty:orderItems[s].expected_qty, picked_qty:orderItems[s].picked_qty}));
+        
+        try {
+            const res = await fetch("/api/orders/fulfill", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({order_number:currentOrder, merchant_id:mId, items:itemsList})});
+            if(res.ok) {
+                const data = await res.json();
+                preparePrintArea(data.order_id, currentOrder, "Mandante", data.timestamp, itemsList);
+                
+                const originalTitle = document.title;
+                document.title = `DDT_${currentOrder}_${data.timestamp.substring(0,10)}`;
+                
+                window.print();
+                
+                setTimeout(() => { document.title = originalTitle; }, 1000);
+
+                const emailInfo = data.email_info || { sent: false, message: "Ordine evaso con successo!" };
+                const alertClass = emailInfo.sent ? "alert-success" : "alert-warning";
+                const alertIcon = emailInfo.sent ? "bi-envelope-check-fill text-success" : "bi-exclamation-triangle-fill text-warning";
+
+                const alertBox = document.getElementById("emailAlertContainer");
+                alertBox.innerHTML = `
+                    <div class="alert ${alertClass} alert-dismissible fade show fw-bold shadow-sm" role="alert">
+                        <i class="bi ${alertIcon} me-2"></i> ${emailInfo.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+
+                currentOrder = ""; orderItems = {}; document.getElementById("activeOrderNumber").value = ""; mode = "ORDER"; updateModeUI(); renderTable();
+            } else { alert(formatApiError(await res.json())); }
+        } catch(e) { alert("Errore connessione."); } finally { btn.disabled = false; btn.innerHTML = origHtml; }
+    }
+
+    // --- FASE 2, 3, 4 (INBOUND, HISTORY, INVENTORY) ---
+    function onTabSwitch(t) {
+        if(t==='inbound'){ document.getElementById("inboundMerchant").value = ""; if(document.getElementById("inboundRowsBody").children.length===0) addInboundRow(); }
+        else if(t==='history'){ loadHistory(true); } else if(t==='inventory'){ loadInventoryOperator(); }
+    }
+
+    function addInboundRow() {
+        const tr = document.createElement("tr"); tr.className="inbound-data-row";
+        tr.innerHTML = `<td><input type="text" class="form-control row-barcode" onblur="resolveInboundBarcode(this)"></td><td><input type="text" class="form-control row-sku" readonly></td><td><input type="text" class="form-control row-desc"></td><td><input type="text" class="form-control row-bin" value="INBOUND"></td><td><input type="number" class="form-control row-qty" value="10"></td><td class="text-center"><button class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
+        document.getElementById("inboundRowsBody").appendChild(tr);
+    }
+
+    async function resolveInboundBarcode(inputElem) {
+        const row = inputElem.closest("tr"), val = inputElem.value.trim(), mId = parseInt(document.getElementById("inboundMerchant").value);
+        if(!val || !mId) return;
+        try {
+            const res = await fetch("/api/items/resolve", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({code: val, merchant_id: mId}) });
+            if(res.ok) { const item = await res.json(); row.querySelector(".row-sku").value = item.sku; row.querySelector(".row-desc").value = item.description; row.querySelector(".row-bin").value = item.bin_location; playBeep(900, 0.08); }
+        } catch(e) {}
+    }
+
+    async function submitInboundDDT() {
+        const merchantId = parseInt(document.getElementById("inboundMerchant").value), docRef = document.getElementById("inboundDocRef").value.trim();
+        const rows = document.querySelectorAll(".inbound-data-row"), items = [];
+        if(!merchantId || !docRef) { alert("Completa Mandante e DDT."); return; }
+        for(let r of rows) {
+            const barcode = r.querySelector(".row-barcode").value.trim(), sku = r.querySelector(".row-sku").value.trim().toUpperCase(), desc = r.querySelector(".row-desc").value.trim(), bin = r.querySelector(".row-bin").value.trim().toUpperCase() || "INBOUND", qty = parseInt(r.querySelector(".row-qty").value);
+            if(!barcode || !desc || qty <= 0) { alert("Completa tutti i dati riga."); return; }
+            items.push({sku: sku, barcode: barcode, description: desc, bin_location: bin, quantity: qty});
+        }
+        try {
+            const res = await fetch(`/api/inbound/ddt?allow_shared_barcode=true`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({merchant_id: merchantId, doc_reference: docRef, items: items}) });
+            if(res.ok) { alert("Carico merci registrato."); document.getElementById("inboundRowsBody").innerHTML = ""; addInboundRow(); } else { alert(formatApiError(await res.json())); }
+        } catch(e) { alert("Errore di rete."); }
+    }
+
+    let cachedInventoryData = [];
+    async function loadInventoryOperator() {
+        const m = document.getElementById("filterInvMerchant").value; let url = "/api/inventory"; if(m) url += `?merchant_id=${m}`;
+        try { const res = await fetch(url); cachedInventoryData = await res.json(); renderInventoryTable(cachedInventoryData); } catch(e) {}
+    }
+    function renderInventoryTable(items) {
+        const tb = document.getElementById("inventoryTableBody");
+        if(items.length===0) { tb.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Nessun articolo.</td></tr>`; return; }
+        tb.innerHTML = items.map((it, idx) => `<tr><td class="fw-bold">${it.bin_location}</td><td class="text-primary fw-bold">${it.sku}</td><td>${it.barcode}</td><td>${it.description}</td><td>${it.merchant_name}</td><td class="text-center fw-bold">${it.on_hand_qty}</td><td class="text-center">${it.on_hand_qty>0?'<span class="badge bg-success">OK</span>':'<span class="badge bg-danger">Zero</span>'}</td><td class="text-center"><button class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="openAdjustModalByIndex(${idx})">Rettifica</button></td></tr>`).join("");
+    }
+    function filterInventoryTable() { const q = document.getElementById("filterInvText").value.toLowerCase(); renderInventoryTable(cachedInventoryData.filter(x => x.sku.toLowerCase().includes(q) || x.description.toLowerCase().includes(q))); }
+
+    function openAdjustModalByIndex(idx) {
+        const item = cachedInventoryData[idx];
+        document.getElementById("adjustModalSku").value = item.sku; document.getElementById("adjustModalQty").value = item.on_hand_qty;
+        document.getElementById("adjustModalTitle").innerText = `Rettifica: ${item.sku}`;
+        new bootstrap.Modal(document.getElementById("modalAdjustStock")).show();
+    }
+    function stepCount(d) { let v = parseInt(document.getElementById("adjustModalQty").value)||0; if(v+d>=0) document.getElementById("adjustModalQty").value = v+d; }
+    async function submitAdjustModal() {
+        const sku = document.getElementById("adjustModalSku").value, qty = parseInt(document.getElementById("adjustModalQty").value), reason = document.getElementById("adjustModalReason").value;
+        try {
+            const res = await fetch("/api/inventory/adjust", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({sku: sku, new_quantity: qty, reason: reason}) });
+            if(res.ok) { bootstrap.Modal.getInstance(document.getElementById("modalAdjustStock")).hide(); loadInventoryOperator(); } else { alert("Errore."); }
+        } catch(e) {}
+    }
+
+    async function loadHistory(showAll) {
+        let url = "/api/orders/history"; const params = [];
+        const m = document.getElementById("historyMerchant").value, dFrom = document.getElementById("historyDateFrom").value, dTo = document.getElementById("historyDateTo").value;
+        if(m) params.push(`merchant_id=${m}`); if(!showAll && dFrom) params.push(`date_from=${dFrom}`); if(!showAll && dTo) params.push(`date_to=${dTo}`);
+        if(params.length > 0) url += `?${params.join("&")}`;
+        try {
+            const res = await fetch(url); const list = await res.json(); const tb = document.getElementById("historyTableBody");
+            tb.innerHTML = list.map(d => `<tr style="cursor:pointer;" onclick="loadDetail(${d.id})"><td>#${d.id}</td><td class="fw-bold">${d.order_number}</td><td>${d.merchant}</td><td>${d.processed_at}</td><td>${d.total_units}</td></tr>`).join("");
+        } catch(e) {}
+    }
+    function resetHistoryFilters() { document.getElementById("historyMerchant").value = ""; document.getElementById("historyDateFrom").value = ""; document.getElementById("historyDateTo").value = ""; loadHistory(true); }
+    let selectedHistoryData = null;
+    async function loadDetail(id) {
+        try {
+            const res = await fetch(`/api/orders/${id}`); selectedHistoryData = await res.json();
+            document.getElementById("btnPrintHistory").classList.remove("d-none");
+            document.getElementById("historyDetailBody").innerHTML = selectedHistoryData.lines.map(r => `<tr><td class="fw-bold">${r.sku}</td><td>${r.barcode}</td><td>${r.description}</td><td>${r.bin_location}</td><td>${r.expected_qty}</td><td class="fw-bold text-success">${r.picked_qty}</td></tr>`).join("");
+        } catch(e) {}
+    }
+
+    function printSelectedHistory() { if(!selectedHistoryData) return; preparePrintArea(selectedHistoryData.header.id, selectedHistoryData.header.order_number, selectedHistoryData.header.merchant, selectedHistoryData.header.processed_at, selectedHistoryData.lines); window.print(); }
+    function printInventoryReportOp() { document.getElementById("prnDocTitle").innerText = "INVENTARIO"; document.getElementById("prnTableHead").innerHTML = `<tr><th>Ubicazione</th><th>SKU</th><th>Barcode</th><th>Descrizione</th><th>Giacenza</th></tr>`; document.getElementById("prnTableBody").innerHTML = cachedInventoryData.map(it => `<tr><td>${it.bin_location}</td><td>${it.sku}</td><td>${it.barcode}</td><td>${it.description}</td><td>${it.on_hand_qty} pcs</td></tr>`).join(""); window.print(); }
+    
+    function preparePrintArea(id, orderNum, merchantName, dtStr, rows) {
+        document.getElementById("prnDocTitle").innerText = "DOCUMENTO DI TRASPORTO"; document.getElementById("prnId").innerText = "#" + id; document.getElementById("prnDate").innerText = dtStr; document.getElementById("prnMerchant").innerText = merchantName; document.getElementById("prnOrderNum").innerText = orderNum; document.getElementById("prnQty").innerText = rows.reduce((a, c) => a + c.picked_qty, 0) + " pcs";
+        document.getElementById("prnTableHead").innerHTML = `<tr><th>SKU</th><th>Barcode</th><th>Descrizione</th><th>Ubicaz.</th><th>Pezzi</th></tr>`;
+        document.getElementById("prnTableBody").innerHTML = rows.map(r => `<tr><td style="font-family: monospace; font-weight: bold;">${r.sku}</td><td>${r.barcode}</td><td>${r.description}</td><td>${r.bin_location}</td><td style="font-weight: bold;">${r.picked_qty}</td></tr>`).join("");
+    }
+
+    let html5QrCode = null, isTorchOn = false;
+    function startCameraScanner() { new bootstrap.Modal(document.getElementById("cameraModal")).show(); html5QrCode = new Html5Qrcode("reader"); html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, t => { playBeep(1100, 0.12); document.getElementById("barcodeInput").value = t; triggerBarcodeScan(); stopCameraScanner(); }).catch(()=>{}); }
+    function stopCameraScanner() { if(html5QrCode) html5QrCode.stop().then(()=>html5QrCode.clear()); bootstrap.Modal.getInstance(document.getElementById("cameraModal")).hide(); }
+    function toggleCameraTorch() { isTorchOn = !isTorchOn; html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] }); }
 </script>
 </body>
 </html>
