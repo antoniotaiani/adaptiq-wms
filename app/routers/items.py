@@ -5,8 +5,9 @@ from sqlalchemy import select, or_
 from app.database import get_db
 from app.models import Item, Merchant
 from app.schemas import ItemResolveRequest
+from app.auth import get_current_operator_payload
 
-router = APIRouter(prefix="/api/items", tags=["Items"])
+router = APIRouter(prefix="/api/items", tags=["Items"], dependencies=[Depends(get_current_operator_payload)])
 
 
 @router.post("/resolve")

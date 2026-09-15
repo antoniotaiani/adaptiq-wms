@@ -99,3 +99,14 @@ class OperatorUser(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(String(50), nullable=False)
+    actor = Column(String(100), nullable=False)
+    action = Column(String(100), nullable=False)
+    target = Column(String(255), nullable=False)
+    details = Column(String(500), nullable=True)

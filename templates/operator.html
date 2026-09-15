@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
+        html { font-size: 14px; }
         :root {
             --primary-blue: #0284c7;
             --primary-blue-dark: #0369a1;
@@ -22,6 +23,7 @@
         .row-ok { background-color: #dcfce7 !important; }
         .row-prog { background-color: #fef9c3 !important; }
         #cameraScannerContainer { width: 100%; max-width: 480px; margin: 0 auto; border-radius: 12px; overflow: hidden; background: #000; }
+        .form-control::placeholder, .form-select::placeholder, textarea::placeholder { color: #adb5bd !important; opacity: 1; font-weight: 400 !important; }
         @media print {
             body { background: white; margin: 0; padding: 0; }
             .no-print { display: none !important; }
@@ -67,15 +69,15 @@
 </div>
 
 <header class="navbar-custom py-2 px-3 mb-3 no-print">
-    <div class="container-fluid d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center gap-3">
-            <img src="/static/logo.png" alt="AdaptiQ Logo" style="height:40px; max-width:140px; object-fit:contain;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
-            <div class="border-start ps-3 d-none d-sm-block">
-                <span class="fs-5 fw-bold text-primary text-uppercase">⚡ AdaptiQ WMS</span>
-                <span class="d-block" style="color: #b45309; font-size: 0.75rem; font-weight: 700;">Postazione Operativa di Magazzino</span>
-            </div>
+    <div class="container-fluid d-grid align-items-center" style="grid-template-columns: 1fr auto 1fr; column-gap: .75rem;">
+        <div class="d-flex align-items-center gap-3" style="justify-self: start;">
+            <img src="/static/logo_logistics.png" alt="ATA Logistics" class="header-logo-logistics" style="height:56px; max-width:320px; object-fit:contain;" onerror="this.onerror=null; this.replaceWith(Object.assign(document.createElement('span'), {className:'fw-bold text-uppercase', innerText:'ATA Logistics', style:'font-size:1.1rem; color:#0369a1; letter-spacing:.5px;'}));">
         </div>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex flex-column align-items-center" style="justify-self: center;">
+            <img src="/static/logo.png" alt="AdaptiQ WMS" class="header-logo-adaptiq" style="height:56px; max-width:320px; object-fit:contain;">
+            <span class="d-none d-sm-block text-uppercase" style="color: #64748b; font-size: 0.68rem; font-weight: 700; letter-spacing: .06em; margin-top: 2px;">Postazione Operativa di Magazzino</span>
+        </div>
+        <div class="d-flex align-items-center gap-2" style="justify-self: end;">
             <a href="/portal" target="_blank" class="btn btn-warning shadow-sm btn-sm fw-bold py-2">
                 <i class="bi bi-box-arrow-up-right me-1"></i> Portale Mandanti
             </a>
@@ -252,14 +254,28 @@
             </div>
             
             <div class="card card-custom p-3">
-                <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-1"></i> Riepilogo Ultimi Carichi</h6>
-                <div class="table-responsive">
+                <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+                    <h6 class="fw-bold m-0"><i class="bi bi-clock-history me-1"></i> Storico Carichi Registrati</h6>
+                    <div class="d-flex align-items-end gap-2 flex-wrap">
+                        <div>
+                            <label class="form-label m-0 small fw-bold">Dal:</label>
+                            <input type="date" id="inboundHistDateFrom" class="form-control form-control-sm">
+                        </div>
+                        <div>
+                            <label class="form-label m-0 small fw-bold">Al:</label>
+                            <input type="date" id="inboundHistDateTo" class="form-control form-control-sm">
+                        </div>
+                        <button class="btn btn-sm btn-primary fw-bold" onclick="loadInboundHistory()">Filtra</button>
+                        <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="resetInboundHistoryFilters()">Mostra Tutto</button>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 480px;">
                     <table class="table table-sm align-middle m-0">
                         <thead class="table-light">
-                            <tr><th>Rif. DDT</th><th>SKU</th><th>Barcode</th><th>Descrizione</th><th>Ubicaz.</th><th class="text-center">Q.tà</th><th>Esito</th></tr>
+                            <tr><th>Data/Ora</th><th>Rif. DDT</th><th>Mandante</th><th>SKU</th><th>Barcode</th><th>Descrizione</th><th>Ubicaz.</th><th class="text-center">Q.tà</th></tr>
                         </thead>
                         <tbody id="inboundHistoryBody">
-                            <tr><td colspan="7" class="text-center text-muted py-4">Nessun carico registrato nella sessione.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Nessun carico registrato.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -328,16 +344,22 @@
         <!-- TAB 4: INVENTORY -->
         <div class="tab-pane fade" id="tab-inventory">
             <div class="card card-custom p-3 mb-3">
-                <div class="row g-2 justify-content-between">
-                    <div class="col-md-4">
-                        <input type="text" id="filterInvText" class="form-control" placeholder="Cerca SKU, barcode..." onkeyup="filterInventoryTable()">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label m-0 small fw-bold text-muted">Filtra Barcode</label>
+                        <input type="text" id="filterInvBarcode" class="form-control" placeholder="Codice a barre..." onkeyup="filterInventoryTable()">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <label class="form-label m-0 small fw-bold text-muted">Filtra Descrizione</label>
+                        <input type="text" id="filterInvDesc" class="form-control" placeholder="Descrizione articolo..." onkeyup="filterInventoryTable()">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label m-0 small fw-bold text-muted">Filtra Mandante</label>
                         <select id="filterInvMerchant" class="form-select fw-bold" onchange="loadInventoryOperator()">
                             <option value="">-- TUTTI I MANDANTI --</option>
                         </select>
                     </div>
-                    <div class="col-md-4 text-end">
+                    <div class="col-md-3 text-md-end">
                         <button class="btn btn-warning fw-bold shadow-sm" onclick="printInventoryReportOp()">Stampa Foglio Inventario</button>
                     </div>
                 </div>
@@ -410,74 +432,171 @@
             </div>
         </div>
 
-        <!-- TAB 6: CONFIGURAZIONI SMTP & SICUREZZA -->
+        <!-- TAB 6: CONFIGURAZIONI -->
         <div class="tab-pane fade" id="tab-config">
-            <div class="row justify-content-center g-4">
-                <div class="col-lg-8">
-                    <div class="card card-custom p-4 border-top border-4 border-secondary">
-                        <h5 class="fw-bold mb-4"><i class="bi bi-envelope-at me-2"></i> Impostazioni Server Email (SMTP)</h5>
-                        <p class="text-muted small mb-4">Questi parametri sono utilizzati dal sistema per inviare in automatico i DDT finalizzati ai clienti e le credenziali di accesso.</p>
-                        
-                        <div class="row g-3">
-                            <div class="col-md-8">
-                                <label class="form-label small fw-bold">Host SMTP Server</label>
-                                <input type="text" id="smtpHost" class="form-control" placeholder="es. smtp.gmail.com">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold">Porta (es. 465 o 587)</label>
-                                <input type="number" id="smtpPort" class="form-control" placeholder="587">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Username Auth</label>
-                                <input type="text" id="smtpUser" class="form-control" placeholder="tuamail@dominio.it">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Password Auth / App Password</label>
-                                <input type="password" id="smtpPass" class="form-control" placeholder="••••••••">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Email Mittente Pubblica</label>
-                                <input type="email" id="smtpSenderEmail" class="form-control" placeholder="logistica@miaazienda.it">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Nome Mittente</label>
-                                <input type="text" id="smtpSenderName" class="form-control" placeholder="AdaptiQ WMS Logistics">
-                            </div>
-                            <div class="col-md-12 mt-4">
-                                <label class="form-label small fw-bold text-primary">URL Pubblico Portale Clienti</label>
-                                <input type="text" id="smtpPortalUrl" class="form-control border-primary" placeholder="es. https://inventario.miaazienda.it">
-                            </div>
-                            <div class="col-md-12 mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
-                                <div class="form-check form-switch fs-5">
-                                    <input class="form-check-input" type="checkbox" id="smtpTls" checked>
-                                    <label class="form-check-label fs-6 fw-bold ms-2" for="smtpTls">Usa Crittografia (TLS/SSL)</label>
+            <ul class="nav nav-pills gap-2 mb-3" id="configSubTab" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active fw-bold px-3 py-2 small" data-bs-toggle="tab" data-bs-target="#subtab-email" onclick="loadSmtpConfig()">
+                        <i class="bi bi-envelope-at me-1"></i> Email &amp; Notifiche
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2 small" data-bs-toggle="tab" data-bs-target="#subtab-security">
+                        <i class="bi bi-shield-lock me-1"></i> Sicurezza
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2 small" data-bs-toggle="tab" data-bs-target="#subtab-branding">
+                        <i class="bi bi-image me-1"></i> Personalizzazione
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2 small" data-bs-toggle="tab" data-bs-target="#subtab-audit" onclick="loadAuditLog()">
+                        <i class="bi bi-clock-history me-1"></i> Log Operazioni
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- SUB-TAB: EMAIL & NOTIFICHE -->
+                <div class="tab-pane fade show active" id="subtab-email">
+                    <div class="row justify-content-center g-4">
+                        <div class="col-lg-8">
+                            <div class="card card-custom p-4 border-top border-4 border-secondary">
+                                <h5 class="fw-bold mb-4"><i class="bi bi-envelope-at me-2"></i> Impostazioni Server Email (SMTP)</h5>
+                                <p class="text-muted small mb-4">Questi parametri sono utilizzati dal sistema per inviare in automatico i DDT finalizzati ai clienti e le credenziali di accesso.</p>
+
+                                <div class="row g-3">
+                                    <div class="col-md-8">
+                                        <label class="form-label small fw-bold">Host SMTP Server</label>
+                                        <input type="text" id="smtpHost" class="form-control" placeholder="es. smtp.gmail.com">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Porta (es. 465 o 587)</label>
+                                        <input type="number" id="smtpPort" class="form-control" placeholder="587">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Username Auth</label>
+                                        <input type="text" id="smtpUser" class="form-control" placeholder="tuamail@dominio.it">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Password Auth / App Password</label>
+                                        <input type="password" id="smtpPass" class="form-control" placeholder="••••••••">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Email Mittente Pubblica</label>
+                                        <input type="email" id="smtpSenderEmail" class="form-control" placeholder="logistica@miaazienda.it">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Nome Mittente</label>
+                                        <input type="text" id="smtpSenderName" class="form-control" placeholder="AdaptiQ WMS Logistics">
+                                    </div>
+                                    <div class="col-md-12 mt-4">
+                                        <label class="form-label small fw-bold text-primary">URL Pubblico Portale Clienti</label>
+                                        <input type="text" id="smtpPortalUrl" class="form-control border-primary" placeholder="es. https://inventario.miaazienda.it">
+                                    </div>
+                                    <div class="col-md-12 mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
+                                        <div class="form-check form-switch fs-5">
+                                            <input class="form-check-input" type="checkbox" id="smtpTls" checked>
+                                            <label class="form-check-label fs-6 fw-bold ms-2" for="smtpTls">Usa Crittografia (TLS/SSL)</label>
+                                        </div>
+                                        <button class="btn btn-success fw-bold px-4 py-2" onclick="saveSmtpConfig()">
+                                            <i class="bi bi-save me-1"></i> Salva Configurazione
+                                        </button>
+                                    </div>
                                 </div>
-                                <button class="btn btn-success fw-bold px-4 py-2" onclick="saveSmtpConfig()">
-                                    <i class="bi bi-save me-1"></i> Salva Configurazione
-                                </button>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- BLOCCO RESET PASSWORD ADMIN DIRETTO -->
-                    <div class="card card-custom p-4 border-top border-4 border-warning mt-4">
-                        <h5 class="fw-bold mb-3"><i class="bi bi-key-fill me-2 text-warning"></i> Reset Password Amministratore (Admin)</h5>
-                        <p class="text-muted small mb-3">Imposta direttamente una nuova password per il terminale di magazzino senza necessità della vecchia.</p>
-                        
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Nuova Password (Min. 6 char)</label>
-                                <input type="password" id="newAdminPass" class="form-control" placeholder="••••••••" minlength="6">
+                <!-- SUB-TAB: SICUREZZA -->
+                <div class="tab-pane fade" id="subtab-security">
+                    <div class="row justify-content-center g-4">
+                        <div class="col-lg-8">
+                            <div class="card card-custom p-4 border-top border-4 border-warning">
+                                <h5 class="fw-bold mb-3"><i class="bi bi-key-fill me-2 text-warning"></i> Reset Password Amministratore (Admin)</h5>
+                                <p class="text-muted small mb-3">Imposta direttamente una nuova password per il terminale di magazzino senza necessità della vecchia.</p>
+
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Nuova Password (Min. 6 char)</label>
+                                        <input type="password" id="newAdminPass" class="form-control" placeholder="••••••••" minlength="6">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Conferma Nuova Password</label>
+                                        <input type="password" id="confirmAdminPass" class="form-control" placeholder="••••••••" minlength="6">
+                                    </div>
+                                    <div class="col-12 mt-3 text-end">
+                                        <button class="btn btn-warning fw-bold px-4 py-2 text-dark shadow-sm" onclick="submitAdminPasswordChange()">
+                                            <i class="bi bi-shield-lock-fill me-1"></i> Forza Reset Password Admin
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Conferma Nuova Password</label>
-                                <input type="password" id="confirmAdminPass" class="form-control" placeholder="••••••••" minlength="6">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: PERSONALIZZAZIONE -->
+                <div class="tab-pane fade" id="subtab-branding">
+                    <div class="row justify-content-center g-4">
+                        <div class="col-lg-8">
+                            <div class="card card-custom p-4 border-top border-4 border-primary">
+                                <h5 class="fw-bold mb-2"><i class="bi bi-image me-2"></i> Loghi Aziendali</h5>
+                                <p class="text-muted small mb-4">Carica qui i loghi mostrati in testata: verranno sostituiti immediatamente su tutte le postazioni.</p>
+
+                                <div class="row g-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Logo Logistics (sinistra)</label>
+                                        <div class="border rounded p-3 text-center mb-2 bg-light">
+                                            <img src="/static/logo_logistics.png" style="height:48px; max-width:100%; object-fit:contain;" onerror="this.style.display='none';">
+                                        </div>
+                                        <input type="file" id="logoFileLogistics" class="form-control mb-2" accept="image/png,image/jpeg,image/webp">
+                                        <button class="btn btn-primary btn-sm fw-bold w-100" onclick="uploadLogo('logistics')"><i class="bi bi-upload me-1"></i> Carica Logo Logistics</button>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Logo AdaptiQ WMS (centro)</label>
+                                        <div class="border rounded p-3 text-center mb-2 bg-light">
+                                            <img src="/static/logo.png" style="height:48px; max-width:100%; object-fit:contain;" onerror="this.style.display='none';">
+                                        </div>
+                                        <input type="file" id="logoFileAdaptiq" class="form-control mb-2" accept="image/png,image/jpeg,image/webp">
+                                        <button class="btn btn-primary btn-sm fw-bold w-100" onclick="uploadLogo('adaptiq')"><i class="bi bi-upload me-1"></i> Carica Logo AdaptiQ</button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-12 mt-3 text-end">
-                                <button class="btn btn-warning fw-bold px-4 py-2 text-dark shadow-sm" onclick="submitAdminPasswordChange()">
-                                    <i class="bi bi-shield-lock-fill me-1"></i> Forza Reset Password Admin
-                                </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: LOG OPERAZIONI -->
+                <div class="tab-pane fade" id="subtab-audit">
+                    <div class="card card-custom p-3">
+                        <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+                            <h6 class="fw-bold m-0"><i class="bi bi-journal-text me-1"></i> Registro Operazioni Sensibili</h6>
+                            <div class="d-flex align-items-end gap-2 flex-wrap">
+                                <div>
+                                    <label class="form-label m-0 small fw-bold">Dal:</label>
+                                    <input type="date" id="auditDateFrom" class="form-control form-control-sm">
+                                </div>
+                                <div>
+                                    <label class="form-label m-0 small fw-bold">Al:</label>
+                                    <input type="date" id="auditDateTo" class="form-control form-control-sm">
+                                </div>
+                                <button class="btn btn-sm btn-primary fw-bold" onclick="loadAuditLog()">Filtra</button>
+                                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="resetAuditFilters()">Mostra Tutto</button>
                             </div>
+                        </div>
+                        <p class="text-muted small">Traccia le operazioni irreversibili o sensibili: cancellazioni, modifiche anagrafiche, reset password, modifiche alla configurazione.</p>
+                        <div class="table-responsive" style="max-height: 480px;">
+                            <table class="table table-sm align-middle m-0">
+                                <thead class="table-light">
+                                    <tr><th>Data/Ora</th><th>Operatore</th><th>Azione</th><th>Oggetto</th><th>Dettagli</th></tr>
+                                </thead>
+                                <tbody id="auditLogBody">
+                                    <tr><td colspan="5" class="text-center text-muted py-4">Nessuna voce registrata.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -486,6 +605,10 @@
 
     </div>
 </main>
+
+<footer class="no-print text-center py-3" style="opacity: 0.45; font-size: 0.75rem; color: #475569;">
+    Copyright &copy; 2026 ATA Logistics srls - P.I. 05816150659 - Tutti i diritti riservati
+</footer>
 
 <!-- MODALI -->
 <div class="modal fade" id="modalAdjustStock" tabindex="-1">
@@ -531,6 +654,41 @@
                 <div class="mb-3"><label class="form-label small fw-bold">Conferma Nuovo PIN</label><input type="password" id="resetPinConfirm" class="form-control fw-bold text-center fs-4"></div>
             </div>
             <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button class="btn btn-danger fw-bold shadow-sm" onclick="submitResetPin()">Forza Reset PIN</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalMerchantDetail" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-custom">
+            <div class="modal-header"><h5 class="modal-title fw-bold">Anagrafica Mandante</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="editMerchantId">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">Codice Account</label>
+                    <input type="text" id="editMerchantCode" class="form-control fw-bold font-monospace" disabled>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Ragione Sociale *</label>
+                    <input type="text" id="editMerchantName" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Email</label>
+                    <input type="email" id="editMerchantEmail" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Telefono</label>
+                    <input type="text" id="editMerchantPhone" class="form-control">
+                </div>
+                <p class="small text-muted mb-0" id="editMerchantSkuCount"></p>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button class="btn btn-outline-danger fw-bold" onclick="deleteMerchantFromModal()"><i class="bi bi-trash me-1"></i> Cancella Mandante</button>
+                <div>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button class="btn btn-primary fw-bold shadow-sm" onclick="submitMerchantEdit()">Salva Modifiche</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -666,7 +824,7 @@
         try {
             const res = await fetch("/api/merchants"); const list = await res.json();
             const tb = document.getElementById("merchantsTableBody");
-            tb.innerHTML = list.map(m => `<tr><td class="font-monospace fw-bold text-primary"><span class="text-muted">#${m.id}</span> ${m.account_code}</td><td class="fw-semibold">${m.company_name}<br><small class="text-muted"><i class="bi bi-envelope"></i> ${m.email || 'N.D.'} | <i class="bi bi-telephone"></i> ${m.phone || 'N.D.'}</small></td><td class="text-center"><span class="badge bg-light text-dark border">${m.sku_count || 0} Articoli</span></td><td class="text-center"><button class="btn btn-sm btn-outline-danger shadow-sm fw-bold" onclick="openResetPinModal(${m.id})">Resetta PIN</button></td></tr>`).join("");
+            tb.innerHTML = list.map(m => `<tr><td class="font-monospace fw-bold text-primary"><span class="text-muted">#${m.id}</span> ${m.account_code}</td><td class="fw-semibold">${m.company_name}<br><small class="text-muted"><i class="bi bi-envelope"></i> ${m.email || 'N.D.'} | <i class="bi bi-telephone"></i> ${m.phone || 'N.D.'}</small></td><td class="text-center"><span class="badge bg-light text-dark border">${m.sku_count || 0} Articoli</span></td><td class="text-center"><div class="d-flex flex-wrap gap-1 justify-content-center"><button class="btn btn-sm btn-outline-primary fw-bold" onclick="openMerchantDetail(${m.id})"><i class="bi bi-pencil-square"></i> Dettagli</button><button class="btn btn-sm btn-outline-danger shadow-sm fw-bold" onclick="openResetPinModal(${m.id})">Resetta PIN</button></div></td></tr>`).join("");
         } catch(e) {}
     }
 
@@ -696,18 +854,75 @@
         } catch(e) { alert("Errore di rete."); }
     }
 
+    async function openMerchantDetail(id) {
+        try {
+            const res = await fetch(`/api/merchants/${id}`);
+            if(!res.ok) { alert(formatApiError(await res.json(), "Impossibile caricare il mandante.")); return; }
+            const m = await res.json();
+            document.getElementById("editMerchantId").value = m.id;
+            document.getElementById("editMerchantCode").value = m.account_code;
+            document.getElementById("editMerchantName").value = m.company_name;
+            document.getElementById("editMerchantEmail").value = m.email || "";
+            document.getElementById("editMerchantPhone").value = m.phone || "";
+            document.getElementById("editMerchantSkuCount").innerText = `Referenze a magazzino: ${m.sku_count || 0}`;
+            new bootstrap.Modal(document.getElementById("modalMerchantDetail")).show();
+        } catch(e) { alert("Errore di rete."); }
+    }
+
+    async function submitMerchantEdit() {
+        const id = document.getElementById("editMerchantId").value;
+        const payload = {
+            company_name: document.getElementById("editMerchantName").value.trim(),
+            email: document.getElementById("editMerchantEmail").value.trim() || null,
+            phone: document.getElementById("editMerchantPhone").value.trim() || null
+        };
+        if(!payload.company_name) { alert("La ragione sociale è obbligatoria."); return; }
+        try {
+            const res = await fetch(`/api/merchants/${id}`, { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
+            if(res.ok) {
+                alert("Dati mandante aggiornati.");
+                bootstrap.Modal.getInstance(document.getElementById("modalMerchantDetail")).hide();
+                loadMerchants(); renderMerchantsDirectory();
+            } else { alert(formatApiError(await res.json(), "Errore durante l'aggiornamento.")); }
+        } catch(e) { alert("Errore di rete."); }
+    }
+
+    async function deleteMerchantFromModal() {
+        const id = document.getElementById("editMerchantId").value;
+        const name = document.getElementById("editMerchantName").value;
+        const confirmMsg = `Stai per cancellare definitivamente il mandante "${name}".\n\nQUESTA OPERAZIONE È IRREVERSIBILE.\n\nConfermi la cancellazione?`;
+        if(!confirm(confirmMsg)) return;
+        try {
+            const res = await fetch(`/api/merchants/${id}`, { method: "DELETE" });
+            if(res.ok) {
+                const data = await res.json();
+                alert(data.message || "Mandante cancellato.");
+                bootstrap.Modal.getInstance(document.getElementById("modalMerchantDetail")).hide();
+                loadMerchants(); renderMerchantsDirectory();
+            } else { alert(formatApiError(await res.json(), "Errore durante la cancellazione.")); }
+        } catch(e) { alert("Errore di rete."); }
+    }
+
     // --- CONFIGURAZIONE SMTP (FASE 6) ---
     async function loadSmtpConfig() {
         try {
             const res = await fetch("/api/config/smtp");
             if (res.ok) {
                 const c = await res.json();
-                ["Host","Port","User","Pass","SenderEmail","SenderName","PortalUrl"].forEach(k => {
-                    const el = document.getElementById("smtp"+k);
-                    if(el && c["smtp_"+k.toLowerCase()] !== undefined) el.value = c["smtp_"+k.toLowerCase()];
-                    else if(el && c[k.replace(/([A-Z])/g, '_$1').toLowerCase().substring(1)] !== undefined) el.value = c[k.replace(/([A-Z])/g, '_$1').toLowerCase().substring(1)];
+                const fieldMap = {
+                    smtpHost: "smtp_host",
+                    smtpPort: "smtp_port",
+                    smtpUser: "smtp_user",
+                    smtpPass: "smtp_password",
+                    smtpSenderEmail: "sender_email",
+                    smtpSenderName: "sender_name",
+                    smtpPortalUrl: "portal_base_url"
+                };
+                Object.entries(fieldMap).forEach(([elId, key]) => {
+                    const el = document.getElementById(elId);
+                    if (el && c[key] !== undefined && c[key] !== null) el.value = c[key];
                 });
-                document.getElementById("smtpTls").checked = c.use_tls;
+                document.getElementById("smtpTls").checked = !!c.use_tls;
             }
         } catch (e) {}
     }
@@ -719,6 +934,35 @@
             if (res.ok) { alert("Configurazione SMTP salvata."); } else { alert("Errore nel salvataggio."); }
         } catch(e) { alert("Errore di connessione."); }
     }
+
+    // --- PERSONALIZZAZIONE LOGHI (FASE 6) ---
+    async function uploadLogo(target) {
+        const inputId = target === "adaptiq" ? "logoFileAdaptiq" : "logoFileLogistics";
+        const input = document.getElementById(inputId);
+        if(!input.files || !input.files[0]) { alert("Seleziona prima un file immagine."); return; }
+        const fd = new FormData();
+        fd.append("file", input.files[0]);
+        try {
+            const res = await fetch(`/api/config/logo/${target}`, { method: "POST", body: fd });
+            if(res.ok) { alert("Logo aggiornato. Ricarico la pagina per mostrare la nuova immagine."); location.reload(); }
+            else { alert(formatApiError(await res.json(), "Errore durante il caricamento del logo.")); }
+        } catch(e) { alert("Errore di rete."); }
+    }
+
+    // --- LOG OPERAZIONI (FASE 6) ---
+    async function loadAuditLog() {
+        const dFrom = document.getElementById("auditDateFrom").value, dTo = document.getElementById("auditDateTo").value;
+        const params = [];
+        if(dFrom) params.push(`date_from=${dFrom}`); if(dTo) params.push(`date_to=${dTo}`);
+        let url = "/api/config/audit-log"; if(params.length) url += `?${params.join("&")}`;
+        try {
+            const res = await fetch(url); const list = await res.json();
+            const tb = document.getElementById("auditLogBody");
+            if(!list.length) { tb.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">Nessuna voce registrata.</td></tr>`; return; }
+            tb.innerHTML = list.map(r => `<tr><td class="text-nowrap">${r.timestamp}</td><td class="fw-bold">${r.actor}</td><td><span class="badge bg-secondary">${r.action}</span></td><td class="font-monospace small">${r.target}</td><td class="small text-muted">${r.details || ''}</td></tr>`).join("");
+        } catch(e) {}
+    }
+    function resetAuditFilters() { document.getElementById("auditDateFrom").value = ""; document.getElementById("auditDateTo").value = ""; loadAuditLog(); }
 
     // --- FASE 1: PICKING ---
     let mode = "ORDER", currentOrder = "", orderItems = {};
@@ -828,9 +1072,23 @@
 
     // --- FASE 2, 3, 4 (INBOUND, HISTORY, INVENTORY) ---
     function onTabSwitch(t) {
-        if(t==='inbound'){ document.getElementById("inboundMerchant").value = ""; if(document.getElementById("inboundRowsBody").children.length===0) addInboundRow(); }
+        if(t==='inbound'){ document.getElementById("inboundMerchant").value = ""; if(document.getElementById("inboundRowsBody").children.length===0) addInboundRow(); loadInboundHistory(); }
         else if(t==='history'){ loadHistory(true); } else if(t==='inventory'){ loadInventoryOperator(); }
     }
+
+    async function loadInboundHistory() {
+        const dFrom = document.getElementById("inboundHistDateFrom").value, dTo = document.getElementById("inboundHistDateTo").value;
+        const params = [];
+        if(dFrom) params.push(`date_from=${dFrom}`); if(dTo) params.push(`date_to=${dTo}`);
+        let url = "/api/inbound/history"; if(params.length) url += `?${params.join("&")}`;
+        try {
+            const res = await fetch(url); const list = await res.json();
+            const tb = document.getElementById("inboundHistoryBody");
+            if(!list.length) { tb.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">Nessun carico registrato.</td></tr>`; return; }
+            tb.innerHTML = list.map(r => `<tr><td class="text-nowrap">${r.timestamp}</td><td class="fw-bold font-monospace">${r.doc_reference || ''}</td><td>${r.merchant_name}</td><td class="text-primary fw-bold">${r.sku}</td><td>${r.barcode}</td><td>${r.description}</td><td>${r.bin_location}</td><td class="text-center fw-bold">${r.quantity}</td></tr>`).join("");
+        } catch(e) {}
+    }
+    function resetInboundHistoryFilters() { document.getElementById("inboundHistDateFrom").value = ""; document.getElementById("inboundHistDateTo").value = ""; loadInboundHistory(); }
 
     function addInboundRow() {
         const tr = document.createElement("tr"); tr.className="inbound-data-row";
@@ -858,7 +1116,7 @@
         }
         try {
             const res = await fetch(`/api/inbound/ddt?allow_shared_barcode=true`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({merchant_id: merchantId, doc_reference: docRef, items: items}) });
-            if(res.ok) { alert("Carico merci registrato."); document.getElementById("inboundRowsBody").innerHTML = ""; addInboundRow(); } else { alert(formatApiError(await res.json())); }
+            if(res.ok) { alert("Carico merci registrato."); document.getElementById("inboundRowsBody").innerHTML = ""; addInboundRow(); loadInboundHistory(); } else { alert(formatApiError(await res.json())); }
         } catch(e) { alert("Errore di rete."); }
     }
 
@@ -870,9 +1128,28 @@
     function renderInventoryTable(items) {
         const tb = document.getElementById("inventoryTableBody");
         if(items.length===0) { tb.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Nessun articolo.</td></tr>`; return; }
-        tb.innerHTML = items.map((it, idx) => `<tr><td class="fw-bold">${it.bin_location}</td><td class="text-primary fw-bold">${it.sku}</td><td>${it.barcode}</td><td>${it.description}</td><td>${it.merchant_name}</td><td class="text-center fw-bold">${it.on_hand_qty}</td><td class="text-center">${it.on_hand_qty>0?'<span class="badge bg-success">OK</span>':'<span class="badge bg-danger">Zero</span>'}</td><td class="text-center"><button class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="openAdjustModalByIndex(${idx})">Rettifica</button></td></tr>`).join("");
+        tb.innerHTML = items.map((it, idx) => `<tr><td class="fw-bold">${it.bin_location}</td><td class="text-primary fw-bold">${it.sku}</td><td>${it.barcode}</td><td>${it.description}</td><td>${it.merchant_name}</td><td class="text-center fw-bold">${it.on_hand_qty}</td><td class="text-center">${it.on_hand_qty>0?'<span class="badge bg-success">OK</span>':'<span class="badge bg-danger">Zero</span>'}</td><td class="text-center"><div class="d-flex gap-1 justify-content-center"><button class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="openAdjustModalByIndex(${idx})">Rettifica</button><button class="btn btn-sm btn-outline-danger fw-bold" onclick="deleteInventoryItemByIndex(${idx})" title="Cancella articolo"><i class="bi bi-trash"></i></button></div></td></tr>`).join("");
     }
-    function filterInventoryTable() { const q = document.getElementById("filterInvText").value.toLowerCase(); renderInventoryTable(cachedInventoryData.filter(x => x.sku.toLowerCase().includes(q) || x.description.toLowerCase().includes(q))); }
+    function filterInventoryTable() {
+        const qBarcode = document.getElementById("filterInvBarcode").value.toLowerCase();
+        const qDesc = document.getElementById("filterInvDesc").value.toLowerCase();
+        renderInventoryTable(cachedInventoryData.filter(x =>
+            (!qBarcode || (x.barcode || "").toLowerCase().includes(qBarcode)) &&
+            (!qDesc || (x.description || "").toLowerCase().includes(qDesc))
+        ));
+    }
+
+    async function deleteInventoryItemByIndex(idx) {
+        const item = cachedInventoryData[idx];
+        if(!item) return;
+        const confirmMsg = `Stai per cancellare definitivamente la referenza [${item.sku}] - "${item.description}" (Giacenza: ${item.on_hand_qty} pz) dal mandante ${item.merchant_name}.\n\nQUESTA OPERAZIONE È IRREVERSIBILE.\n\nConfermi la cancellazione?`;
+        if(!confirm(confirmMsg)) return;
+        try {
+            const res = await fetch(`/api/inventory/merchant-item/${encodeURIComponent(item.sku)}`, { method: "DELETE" });
+            if(res.ok) { const data = await res.json(); alert(data.message || "Articolo cancellato."); loadInventoryOperator(); }
+            else { alert(formatApiError(await res.json(), "Errore durante la cancellazione dell'articolo.")); }
+        } catch(e) { alert("Errore di rete."); }
+    }
 
     function openAdjustModalByIndex(idx) {
         const item = cachedInventoryData[idx];

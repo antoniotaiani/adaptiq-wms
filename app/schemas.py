@@ -33,6 +33,11 @@ class ResetPinRequest(BaseModel):
     new_pin: str = Field(..., min_length=8, description="Il nuovo PIN deve essere di almeno 8 caratteri")
     confirm_pin: str = Field(..., min_length=8)
 
+class UpdateMerchantRequest(BaseModel):
+    company_name: str = Field(..., min_length=1)
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
 class OperatorLoginRequest(BaseModel):
     username: str = Field(..., min_length=1)
     password: str = Field(..., min_length=1)

@@ -1,18 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models import Merchant, Item, DispatchOrder, SmtpSettings
-from app.schemas import MerchantLoginRequest, CreateMerchantRequest, UpdatePinRequest, ResetPinRequest
-from app.auth import hash_pin, verify_pin, create_merchant_token, get_current_merchant_payload
+from app.schemas import MerchantLoginRequest, CreateMerchantRequest, UpdatePinRequest, ResetPinRequest, UpdateMerchantRequest
+from app.auth import hash_pin, verify_pin, create_merchant_token, get_current_merchant_payload, get_current_operator_payload
 from app.config import JWT_EXPIRATION_HOURS
 from app.email_utils import send_email_background
+from app.audit import log_action, actor_from_payload
 
 router = APIRouter(prefix="/api", tags=["Merchants"])
 
 @router.get("/merchants")
-async def get_merchants(db: AsyncSession = Depends(get_db)):
+async def get_merchants(
+    op: dict = Depends(get_current_operator_payload),
+    db: AsyncSession = Depends(get_db)
+):
     stmt = (
         select(
             Merchant.id,
@@ -42,6 +46,7 @@ async def get_merchants(db: AsyncSession = Depends(get_db)):
 async def create_merchant(
     payload: CreateMerchantRequest, 
     background_tasks: BackgroundTasks,
+    op: dict = Depends(get_current_operator_payload),
     db: AsyncSession = Depends(get_db)
 ):
     code = payload.account_code.strip().upper()
@@ -95,11 +100,91 @@ async def create_merchant(
     return {"status": "ok", "message": f"Mandante '{name}' registrato con successo."}
 
 
+@router.get("/merchants/{merchant_id}")
+async def get_merchant_detail(
+    merchant_id: int,
+    op: dict = Depends(get_current_operator_payload),
+    db: AsyncSession = Depends(get_db)
+):
+    merchant = await db.get(Merchant, merchant_id)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Mandante non trovato.")
+
+    sku_count_res = await db.execute(select(func.count(Item.sku)).where(Item.merchant_id == merchant_id))
+    sku_count = sku_count_res.scalar() or 0
+
+    return {
+        "id": merchant.id,
+        "account_code": merchant.account_code,
+        "company_name": merchant.company_name,
+        "email": merchant.email,
+        "phone": merchant.phone,
+        "sku_count": sku_count
+    }
+
+
+@router.put("/merchants/{merchant_id}")
+async def update_merchant(
+    merchant_id: int,
+    payload: UpdateMerchantRequest,
+    op: dict = Depends(get_current_operator_payload),
+    db: AsyncSession = Depends(get_db)
+):
+    merchant = await db.get(Merchant, merchant_id)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Mandante non trovato.")
+
+    name = payload.company_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="La ragione sociale non può essere vuota.")
+
+    merchant.company_name = name
+    merchant.email = payload.email.strip() if payload.email and payload.email.strip() else None
+    merchant.phone = payload.phone.strip() if payload.phone and payload.phone.strip() else None
+
+    await log_action(db, actor_from_payload(op), "MODIFICA_ANAGRAFICA", f"merchant:{merchant.account_code}", f"Dati aggiornati per '{name}'.")
+    await db.commit()
+    return {"status": "ok", "message": f"Dati di '{name}' aggiornati con successo."}
+
+
+@router.delete("/merchants/{merchant_id}")
+async def delete_merchant(
+    merchant_id: int,
+    op: dict = Depends(get_current_operator_payload),
+    db: AsyncSession = Depends(get_db)
+):
+    merchant = await db.get(Merchant, merchant_id)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Mandante non trovato.")
+
+    sku_count_res = await db.execute(select(func.count(Item.sku)).where(Item.merchant_id == merchant_id))
+    sku_count = sku_count_res.scalar() or 0
+    if sku_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Impossibile cancellare '{merchant.company_name}': ha ancora {sku_count} referenze a magazzino. Storna prima gli articoli dall'inventario."
+        )
+
+    orders_res = await db.execute(select(DispatchOrder).where(DispatchOrder.merchant_id == merchant_id).limit(1))
+    if orders_res.first():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Impossibile cancellare '{merchant.company_name}': esistono documenti di spedizione storicizzati a suo nome."
+        )
+
+    name = merchant.company_name
+    await db.delete(merchant)
+    await log_action(db, actor_from_payload(op), "CANCELLAZIONE_MANDANTE", f"merchant:{merchant.account_code}", f"Mandante '{name}' cancellato.")
+    await db.commit()
+    return {"status": "ok", "message": f"Mandante '{name}' cancellato con successo."}
+
+
 @router.post("/merchants/{merchant_id}/reset-pin")
 async def reset_merchant_pin(
     merchant_id: int, 
     payload: ResetPinRequest, 
     background_tasks: BackgroundTasks, 
+    op: dict = Depends(get_current_operator_payload),
     db: AsyncSession = Depends(get_db)
 ):
     if payload.new_pin != payload.confirm_pin:
@@ -143,15 +228,29 @@ async def reset_merchant_pin(
 
 
 @router.put("/merchants/{merchant_id}/pin")
-async def update_pin(merchant_id: int, payload: UpdatePinRequest, db: AsyncSession = Depends(get_db)):
-    pin = payload.pin.strip()
-    if not pin:
-        raise HTTPException(status_code=400, detail="Il PIN non può essere vuoto.")
+async def update_pin(
+    merchant_id: int,
+    payload: UpdatePinRequest,
+    auth: dict = Depends(get_current_merchant_payload),
+    db: AsyncSession = Depends(get_db)
+):
+    # Self-service: il mandante autenticato può cambiare solo il proprio PIN.
+    if int(auth["sub"]) != merchant_id:
+        raise HTTPException(status_code=403, detail="Non autorizzato a modificare il PIN di un altro mandante.")
 
-    stmt = update(Merchant).where(Merchant.id == merchant_id).values(pin_hash=hash_pin(pin))
-    res = await db.execute(stmt)
-    if res.rowcount == 0:
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = result.scalar_one_or_none()
+    if not merchant:
         raise HTTPException(status_code=404, detail="Mandante non trovato.")
+
+    if merchant.account_code != payload.account_code.strip() or not verify_pin(payload.old_pin.strip(), merchant.pin_hash):
+        raise HTTPException(status_code=400, detail="Codice account o PIN attuale non corretti.")
+
+    new_pin = payload.new_pin.strip()
+    if not new_pin:
+        raise HTTPException(status_code=400, detail="Il nuovo PIN non può essere vuoto.")
+
+    merchant.pin_hash = hash_pin(new_pin)
     await db.commit()
     return {"status": "ok", "message": "PIN di accesso aggiornato con successo."}
 

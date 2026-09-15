@@ -13,10 +13,19 @@ from app.routers import views, merchants, inventory, inbound, outbound, items, c
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.connect() as conn:
-        await conn.execute(text("SELECT pg_advisory_lock(847291)"))
-        await conn.run_sync(Base.metadata.create_all)
-        
+    # Connessione dedicata al lock: pg_advisory_lock è a livello di SESSIONE, quindi resta
+    # attivo per tutta la durata del blocco indipendentemente dai commit delle transazioni
+    # eseguite qui sotto (anche su connessioni diverse).
+    async with engine.connect() as lock_conn:
+        await lock_conn.execute(text("SELECT pg_advisory_lock(847291)"))
+
+        # Transazione dedicata SOLO al DDL: deve completare il commit (engine.begin() lo fa
+        # automaticamente in uscita dal blocco) PRIMA di aprire qualunque altra sessione,
+        # altrimenti quest'ultima — su una connessione diversa — non vedrebbe ancora le
+        # tabelle appena create (isolamento delle transazioni PostgreSQL).
+        async with engine.begin() as ddl_conn:
+            await ddl_conn.run_sync(Base.metadata.create_all)
+
         async with AsyncSessionLocal() as session:
             result = await session.execute(select(func.count(Merchant.id)))
             count = result.scalar()
@@ -35,7 +44,7 @@ async def lifespan(app: FastAPI):
                 session.add_all(seed_items)
                 await session.commit()
 
-        await conn.execute(text("SELECT pg_advisory_unlock(847291)"))
+        await lock_conn.execute(text("SELECT pg_advisory_unlock(847291)"))
     yield
 
 

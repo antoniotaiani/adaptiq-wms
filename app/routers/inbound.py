@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
+from typing import Optional
 import traceback
 
 from app.database import get_db
 from app.models import Item, Merchant, InventoryTransaction
 from app.schemas import InboundDDTRequest
+from app.auth import get_current_operator_payload
 
-router = APIRouter(prefix="/api/inbound", tags=["Inbound"])
+router = APIRouter(prefix="/api/inbound", tags=["Inbound"], dependencies=[Depends(get_current_operator_payload)])
 
 
 async def get_next_sku_sequence(prefix: str, db: AsyncSession) -> int:
@@ -216,3 +218,63 @@ async def receive_inbound_ddt(
         "doc_reference": doc_ref,
         "items_count": len(payload.items)
     }
+
+
+@router.get("/history")
+async def inbound_history(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    merchant_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Storico persistente dei carichi merce (Fase 2), con filtro opzionale per
+    intervallo di date e per mandante.
+    """
+    stmt = (
+        select(
+            InventoryTransaction.id,
+            InventoryTransaction.timestamp,
+            InventoryTransaction.doc_reference,
+            InventoryTransaction.sku,
+            InventoryTransaction.quantity,
+            Item.barcode,
+            Item.description,
+            Item.bin_location,
+            Item.merchant_id,
+            Merchant.company_name,
+        )
+        .join(Item, InventoryTransaction.sku == Item.sku)
+        .join(Merchant, Item.merchant_id == Merchant.id)
+        .where(InventoryTransaction.transaction_type == "INBOUND_RECEIVE")
+    )
+
+    if merchant_id:
+        stmt = stmt.where(Item.merchant_id == merchant_id)
+
+    if date_from and date_from.strip():
+        stmt = stmt.where(InventoryTransaction.timestamp >= f"{date_from.strip()} 00:00:00")
+
+    if date_to and date_to.strip():
+        stmt = stmt.where(InventoryTransaction.timestamp <= f"{date_to.strip()} 23:59:59")
+
+    stmt = stmt.order_by(InventoryTransaction.id.desc()).limit(500)
+
+    res = await db.execute(stmt)
+    rows = res.all()
+
+    return [
+        {
+            "id": r[0],
+            "timestamp": r[1],
+            "doc_reference": r[2],
+            "sku": r[3],
+            "quantity": r[4],
+            "barcode": r[5],
+            "description": r[6],
+            "bin_location": r[7],
+            "merchant_id": r[8],
+            "merchant_name": r[9],
+        }
+        for r in rows
+    ]

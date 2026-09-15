@@ -6,8 +6,10 @@ from typing import Optional
 from app.database import get_db
 from app.models import Item, Merchant, InventoryTransaction, DispatchOrderLine
 from app.schemas import InventoryAdjustRequest
+from app.auth import get_current_operator_payload
+from app.audit import log_action, actor_from_payload
 
-router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
+router = APIRouter(prefix="/api/inventory", tags=["Inventory"], dependencies=[Depends(get_current_operator_payload)])
 
 
 @router.get("")
@@ -85,7 +87,11 @@ async def adjust_stock(payload: InventoryAdjustRequest, db: AsyncSession = Depen
 
 
 @router.delete("/merchant-item/{sku}")
-async def remove_item_from_merchant(sku: str, db: AsyncSession = Depends(get_db)):
+async def remove_item_from_merchant(
+    sku: str,
+    op: dict = Depends(get_current_operator_payload),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Rimuove la referenza e la relativa giacenza dal mandante indicato.
     Non tocca gli altri committenti che condividono lo stesso barcode.
@@ -119,6 +125,10 @@ async def remove_item_from_merchant(sku: str, db: AsyncSession = Depends(get_db)
             delete(InventoryTransaction).where(InventoryTransaction.sku == sku_clean)
         )
         await db.delete(item)
+        await log_action(
+            db, actor_from_payload(op), "CANCELLAZIONE_ARTICOLO", f"item:{sku_clean}",
+            f"Referenza [{sku_clean}] ({qty_stornata} pz) stornata dal mandante '{merchant_name}'."
+        )
         await db.commit()
     except Exception as e:
         await db.rollback()

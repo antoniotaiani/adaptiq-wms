@@ -5,14 +5,19 @@ from pydantic import BaseModel, Field
 from app.database import get_db
 from app.models import OperatorUser
 from app.schemas import OperatorLoginRequest
-from app.auth import hash_pin, verify_pin, create_merchant_token
+from app.auth import hash_pin, verify_pin, create_merchant_token, get_current_operator_payload
 from app.config import JWT_EXPIRATION_HOURS
+from app.audit import log_action, actor_from_payload
 
 router = APIRouter(prefix="/api/operator", tags=["Operator"])
 
 class AdminPasswordChangeRequest(BaseModel):
     old_password: str
     new_password: str = Field(..., min_length=6)
+
+class AdminPasswordResetRequest(BaseModel):
+    new_password: str = Field(..., min_length=6)
+    confirm_password: str = Field(..., min_length=6)
 
 @router.post("/init")
 async def init_admin(db: AsyncSession = Depends(get_db)):
@@ -52,7 +57,11 @@ async def logout(response: Response):
     return {"status": "ok"}
 
 @router.post("/admin/change-password")
-async def change_admin_password(cred: AdminPasswordChangeRequest, db: AsyncSession = Depends(get_db)):
+async def change_admin_password(
+    cred: AdminPasswordChangeRequest,
+    op: dict = Depends(get_current_operator_payload),
+    db: AsyncSession = Depends(get_db)
+):
     stmt = select(OperatorUser).where(OperatorUser.username == "admin")
     res = await db.execute(stmt)
     admin_user = res.scalar_one_or_none()
@@ -61,5 +70,27 @@ async def change_admin_password(cred: AdminPasswordChangeRequest, db: AsyncSessi
         raise HTTPException(status_code=400, detail="La vecchia password non è corretta.")
 
     admin_user.password_hash = hash_pin(cred.new_password)
+    await log_action(db, actor_from_payload(op), "PASSWORD_CHANGE", "operator_users:admin", "Cambio password con verifica della vecchia password.")
     await db.commit()
     return {"status": "ok", "message": "Password amministratore aggiornata con successo."}
+
+
+@router.post("/admin/reset-password")
+async def reset_admin_password(
+    cred: AdminPasswordResetRequest,
+    op: dict = Depends(get_current_operator_payload),
+    db: AsyncSession = Depends(get_db)
+):
+    if cred.new_password != cred.confirm_password:
+        raise HTTPException(status_code=400, detail="Le password non coincidono.")
+
+    stmt = select(OperatorUser).where(OperatorUser.username == "admin")
+    res = await db.execute(stmt)
+    admin_user = res.scalar_one_or_none()
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="Utente admin non trovato.")
+
+    admin_user.password_hash = hash_pin(cred.new_password)
+    await log_action(db, actor_from_payload(op), "PASSWORD_RESET_DIRETTO", "operator_users:admin", "Reset diretto senza vecchia password.")
+    await db.commit()
+    return {"status": "ok", "message": "Password amministratore resettata con successo."}

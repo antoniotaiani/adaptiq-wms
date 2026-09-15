@@ -10,13 +10,14 @@ from pydantic import BaseModel
 # Importazioni per la generazione del PDF
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 from app.database import get_db
 from app.models import Item, Merchant, DispatchOrder, DispatchOrderLine, InventoryTransaction
 from app.schemas import DispatchFulfillRequest
 from app.email_utils import send_email_background, check_smtp_configured
+from app.auth import get_current_operator_payload, get_operator_or_merchant_payload
 
 router = APIRouter(prefix="/api/orders", tags=["Outbound"])
 
@@ -57,31 +58,40 @@ def generate_ddt_pdf(order_number: str, merchant_name: str, processed_at: str, i
     elements.append(Spacer(1, 20))
 
     # Tabella Articoli
-    table_data = [["SKU", "Barcode", "Descrizione", "Ubicaz.", "Q.tà"]]
+    # NOTA: le celle vengono passate come Paragraph (non stringhe semplici) perché
+    # Table di ReportLab non va a capo automaticamente su stringhe grezze — se il
+    # testo (es. uno SKU lungo) supera la larghezza della colonna, sconfina e si
+    # sovrappone alla colonna successiva invece di andare su più righe.
+    header_style = ParagraphStyle('TableHeader', fontName='Helvetica-Bold', fontSize=9, leading=11, textColor=colors.whitesmoke)
+    cell_style = ParagraphStyle('TableCell', fontName='Helvetica', fontSize=8.5, leading=10.5, wordWrap='CJK')
+
+    table_data = [[Paragraph(h, header_style) for h in ["SKU", "Barcode", "Descrizione", "Ubicaz.", "Q.tà"]]]
     for it in items:
-        desc = (it.description[:45] + '...') if it.description and len(it.description) > 45 else (it.description or "")
+        desc = (it.description[:80] + '...') if it.description and len(it.description) > 80 else (it.description or "")
         table_data.append([
-            it.sku, 
-            it.barcode or "", 
-            desc, 
-            it.bin_location or "", 
-            str(it.picked_qty)
+            Paragraph(it.sku or "", cell_style),
+            Paragraph(it.barcode or "", cell_style),
+            Paragraph(desc, cell_style),
+            Paragraph(it.bin_location or "", cell_style),
+            Paragraph(str(it.picked_qty), cell_style),
         ])
-    
+
     # Stile Tabella
-    t = Table(table_data, colWidths=[80, 90, 240, 60, 40])
+    t = Table(table_data, colWidths=[105, 90, 200, 60, 40], repeatRows=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#0f172a")),
         ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('ALIGN', (-1,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 10),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,0), 8),
         ('BOTTOMPADDING', (0,0), (-1,0), 8),
+        ('TOPPADDING', (0,1), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,1), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
         ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#f8fafc")),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,1), (-1,-1), 9),
     ]))
     elements.append(t)
     
@@ -101,7 +111,7 @@ def generate_ddt_pdf(order_number: str, merchant_name: str, processed_at: str, i
 
 # --- 1. Endpoint di Convalida Preventiva DDT di Vendita ---
 @router.post("/validate-ddt")
-async def validate_ddt(payload: DDTValidationRequest, db: AsyncSession = Depends(get_db)):
+async def validate_ddt(payload: DDTValidationRequest, op: dict = Depends(get_current_operator_payload), db: AsyncSession = Depends(get_db)):
     if not payload.items:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
@@ -176,7 +186,7 @@ async def validate_ddt(payload: DDTValidationRequest, db: AsyncSession = Depends
 
 # --- 2. Endpoint Esistenti di Workflow Outbound ---
 @router.get("/check/{order_number}")
-async def check_order_exists(order_number: str, merchant_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+async def check_order_exists(order_number: str, merchant_id: Optional[int] = None, op: dict = Depends(get_current_operator_payload), db: AsyncSession = Depends(get_db)):
     ord_clean = order_number.strip()
     stmt = (
         select(DispatchOrder.id, DispatchOrder.processed_at, Merchant.company_name)
@@ -197,6 +207,7 @@ async def check_order_exists(order_number: str, merchant_id: Optional[int] = Non
 async def fulfill_order(
     payload: DispatchFulfillRequest, 
     background_tasks: BackgroundTasks,
+    op: dict = Depends(get_current_operator_payload),
     db: AsyncSession = Depends(get_db)
 ):
     if not payload.items:
@@ -327,6 +338,7 @@ async def orders_history(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
     merchant_id: Optional[int] = Query(None),
+    op: dict = Depends(get_current_operator_payload),
     db: AsyncSession = Depends(get_db)
 ):
     stmt = (
@@ -360,9 +372,9 @@ async def orders_history(
 
 
 @router.get("/{order_id}")
-async def order_detail(order_id: int, db: AsyncSession = Depends(get_db)):
+async def order_detail(order_id: int, auth: dict = Depends(get_operator_or_merchant_payload), db: AsyncSession = Depends(get_db)):
     stmt_header = (
-        select(DispatchOrder.id, DispatchOrder.order_number, Merchant.company_name, DispatchOrder.processed_at, DispatchOrder.total_units)
+        select(DispatchOrder.id, DispatchOrder.order_number, DispatchOrder.merchant_id, Merchant.company_name, DispatchOrder.processed_at, DispatchOrder.total_units)
         .join(Merchant, DispatchOrder.merchant_id == Merchant.id)
         .where(DispatchOrder.id == order_id)
     )
@@ -371,12 +383,18 @@ async def order_detail(order_id: int, db: AsyncSession = Depends(get_db)):
     if not h:
         raise HTTPException(status_code=404, detail="Ordine non trovato.")
 
+    # Un mandante autenticato può vedere solo i propri ordini. In precedenza questo
+    # endpoint non filtrava affatto per proprietario: bastava indovinare/incrementare
+    # l'order_id per vedere ordini di altri mandanti dal portale.
+    if auth["role"] == "merchant" and int(auth["payload"]["sub"]) != h[2]:
+        raise HTTPException(status_code=404, detail="Ordine non trovato.")
+
     stmt_lines = select(DispatchOrderLine).where(DispatchOrderLine.order_id == order_id)
     res_l = await db.execute(stmt_lines)
     lines = res_l.scalars().all()
 
     return {
-        "header": {"id": h[0], "order_number": h[1], "merchant": h[2], "processed_at": h[3], "total_units": h[4]},
+        "header": {"id": h[0], "order_number": h[1], "merchant": h[3], "processed_at": h[4], "total_units": h[5]},
         "lines": [
             {"sku": l.sku, "barcode": l.barcode, "description": l.description, "bin_location": l.bin_location, "expected_qty": l.expected_qty, "picked_qty": l.picked_qty}
             for l in lines
