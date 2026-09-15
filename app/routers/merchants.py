@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Response, status, BackgroundTasks, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from typing import Optional
 
 from app.database import get_db
 from app.models import Merchant, Item, DispatchOrder, SmtpSettings
@@ -300,11 +301,20 @@ async def merchant_live_inventory(
 
 @router.get("/merchant/me/orders")
 async def merchant_live_orders(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
     auth: dict = Depends(get_current_merchant_payload),
     db: AsyncSession = Depends(get_db)
 ):
     merchant_id = int(auth["sub"])
-    stmt = select(DispatchOrder).where(DispatchOrder.merchant_id == merchant_id).order_by(DispatchOrder.id.desc())
+    stmt = select(DispatchOrder).where(DispatchOrder.merchant_id == merchant_id)
+
+    if date_from and date_from.strip():
+        stmt = stmt.where(DispatchOrder.processed_at >= f"{date_from.strip()} 00:00:00")
+    if date_to and date_to.strip():
+        stmt = stmt.where(DispatchOrder.processed_at <= f"{date_to.strip()} 23:59:59")
+
+    stmt = stmt.order_by(DispatchOrder.id.desc())
     res = await db.execute(stmt)
     rows = res.scalars().all()
     return [
