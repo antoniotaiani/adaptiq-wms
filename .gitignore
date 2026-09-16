@@ -62,6 +62,7 @@ temp/
 *~
 .DS_Store
 Thumbs.db
+docker-compose.override.yml
 
 # Output di aggregazione (repomix, dump)
 repomix-output.*

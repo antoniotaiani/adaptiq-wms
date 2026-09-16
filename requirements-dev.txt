@@ -1,0 +1,25 @@
+# Dipendenze per il venv LOCALE, usato solo da VS Code/Pylance per
+# l'autocompletamento e il controllo tipi. L'app in Docker continua a
+# usare le proprie dipendenze installate dentro il container: questo
+# file non la riguarda in alcun modo.
+
+# --- dal Dockerfile ---
+fastapi
+uvicorn[standard]
+gunicorn
+sqlalchemy
+asyncpg
+pydantic
+jinja2
+python-jose[cryptography]
+
+# --- installate a runtime da docker-compose.yml ---
+aiosmtplib
+reportlab
+email-validator
+pydantic[email]
+python-multipart
+
+# --- solo per il debug/sviluppo in locale ---
+debugpy
+black
