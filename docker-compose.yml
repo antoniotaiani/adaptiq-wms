@@ -4,13 +4,13 @@ services:
     container_name: adaptiq_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: adaptiq_user
-      POSTGRES_PASSWORD: adaptiq_secure_password_2026
-      POSTGRES_DB: adaptiq_wms
+      POSTGRES_USER: ${POSTGRES_USER:-adaptiq_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-adaptiq_secure_password_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-adaptiq_wms}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U adaptiq_user -d adaptiq_wms"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-adaptiq_user} -d ${POSTGRES_DB:-adaptiq_wms}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,8 +24,8 @@ services:
     container_name: adaptiq_api
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+asyncpg://adaptiq_user:adaptiq_secure_password_2026@db:5432/adaptiq_wms
-      JWT_SECRET: adaptiq_jwt_dev_secret_key_2026_xyz
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-adaptiq_user}:${POSTGRES_PASSWORD:-adaptiq_secure_password_2026}@db:5432/${POSTGRES_DB:-adaptiq_wms}
+      JWT_SECRET: ${JWT_SECRET:-adaptiq_jwt_dev_secret_key_2026_xyz}
     volumes:
       - ./app:/app/app
       - ./templates:/app/templates
@@ -33,7 +33,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: sh -c "pip install aiosmtplib reportlab email-validator pydantic[email] python-multipart --break-system-packages && gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000"
+    command: sh -c "pip install aiosmtplib reportlab email-validator pydantic[email] python-multipart --break-system-packages && gunicorn app.main:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000"
     networks:
       - adaptiq_net
 
