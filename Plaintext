@@ -1,25 +1,29 @@
-┌─────────────────────────┐             ┌─────────────────────────┐
-  │        merchants        │ 1         * │          items          │
-  ├─────────────────────────┤─────────────┼─────────────────────────┤
-  │ id (PK)                 │             │ sku (PK)                │
-  │ account_code (UQ)       │             │ barcode (UQ)            │
-  │ company_name            │             │ merchant_id (FK)        │
-  │ pin_hash                │             │ description             │
-  └─────────────────────────┘             │ bin_location            │
-               │ 1                        │ on_hand_qty >= 0 (CHK)  │
-               │                          └─────────────────────────┘
-               │ 1                                     │ 1
-               ▼ *                                     ▼ *
-  ┌─────────────────────────┐             ┌─────────────────────────┐
-  │     dispatch_orders     │ 1         * │ inventory_transactions  │
-  ├─────────────────────────┤─────────────┼─────────────────────────┤
-  │ id (PK)                 │             │ id (PK)                 │
-  │ merchant_id (FK) ──┐ UQ │             │ sku (FK)                │
-  │ order_number       │    │             │ timestamp               │
-  │ processed_at            │             │ transaction_type        │
-  │ status                  │             │ quantity != 0 (CHK)     │
-  │ total_units >= 0 (CHK)  │             │ doc_reference           │
-  └─────────────────────────┘             └─────────────────────────┘
+Schema Entita'-Relazione (da app/models.py) - Settembre 2026
+
+  ┌─────────────────────────┐              ┌─────────────────────────┐
+  │        merchants        │ 1          * │          items          │
+  ├─────────────────────────┤──────────────┼─────────────────────────┤
+  │ id (PK)                 │              │ sku (PK)                │
+  │ account_code (UQ)       │              │ barcode                 │
+  │ company_name            │              │ merchant_id (FK)        │
+  │ pin_hash                │              │ description             │
+  │ email (nullable)        │              │ bin_location            │
+  │ phone (nullable)        │              │ on_hand_qty             │
+  └─────────────────────────┘              │ UQ (merchant_id,barcode)│
+               │ 1                         └─────────────────────────┘
+               │                                        │ (sku, no FK)
+               │ 1                                      │
+               ▼ *                                      ▼
+  ┌─────────────────────────┐              ┌─────────────────────────┐
+  │     dispatch_orders     │              │ inventory_transactions  │
+  ├─────────────────────────┤              ├─────────────────────────┤
+  │ id (PK)                 │              │ id (PK)                 │
+  │ order_number            │              │ timestamp               │
+  │ merchant_id (FK)        │              │ sku (FK -> items.sku)   │
+  │ processed_at            │              │ transaction_type        │
+  │ status                  │              │ quantity                │
+  │ total_units             │              │ doc_reference           │
+  └─────────────────────────┘              └─────────────────────────┘
                │ 1
                │
                ▼ *
@@ -28,8 +32,37 @@
   ├─────────────────────────┤
   │ id (PK)                 │
   │ order_id (FK)           │
-  │ sku, barcode, desc, bin │
-  │ expected_qty > 0 (CHK)  │
-  │ picked_qty >= 0  (CHK)  │
-  │ picked_qty <= expected  │
-  └─────────────────────────┘
+  │ sku, barcode, description, bin_location   <- snapshot al momento
+  │ expected_qty                                 dell'evasione, NON e'
+  │ picked_qty                                   FK verso items.sku
+  └─────────────────────────┘                    (l'articolo puo' essere
+                                                   stornato/modificato dopo)
+
+  Tabelle indipendenti (nessuna relazione FK con le altre):
+
+  ┌─────────────────────────┐   ┌─────────────────────────┐   ┌─────────────────────────┐
+  │      smtp_settings      │   │      operator_users     │   │        audit_log        │
+  ├─────────────────────────┤   ├─────────────────────────┤   ├─────────────────────────┤
+  │ id (PK, riga singola=1) │   │ id (PK)                 │   │ id (PK)                 │
+  │ smtp_host/port          │   │ username (UQ)           │   │ timestamp               │
+  │ smtp_user/password      │   │ password_hash           │   │ actor                   │
+  │ sender_email/name       │   └─────────────────────────┘   │ action                  │
+  │ use_tls                 │                                 │ target                  │
+  │ portal_base_url         │                                 │ details (nullable)      │
+  └─────────────────────────┘                                 └─────────────────────────┘
+
+Note:
+- Nessun vincolo CHECK e' definito a livello di database (SQLAlchemy/Postgres): le
+  regole "on_hand_qty >= 0", "picked_qty <= expected_qty", "quantity != 0" ecc. sono
+  applicate solo a livello applicativo nei router (es. app/routers/outbound.py blocca
+  l'overpicking e il superamento di expected_qty prima del commit; app/schemas.py usa
+  Field(ge=0) sulle richieste di rettifica).
+- L'unico vincolo DB esplicito e' l'UniqueConstraint (merchant_id, barcode) su items:
+  permette allo stesso barcode di coesistere su mandanti diversi, ma non due volte
+  sullo stesso mandante.
+- items.merchant_id e dispatch_orders.merchant_id sono ForeignKey verso merchants.id;
+  inventory_transactions.sku e' ForeignKey verso items.sku; dispatch_order_lines.order_id
+  e' ForeignKey verso dispatch_orders.id.
+- dispatch_order_lines.sku NON e' una ForeignKey: e' una copia dei dati dell'articolo al
+  momento dell'evasione, cosi' lo storico ordini resta leggibile anche se l'articolo
+  viene poi stornato da app/routers/inventory.py (remove_item_from_merchant).
