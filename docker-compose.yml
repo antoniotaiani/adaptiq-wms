@@ -33,7 +33,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: sh -c "pip install aiosmtplib reportlab email-validator pydantic[email] python-multipart --break-system-packages && gunicorn app.main:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000"
+    command: gunicorn app.main:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
     networks:
       - adaptiq_net
 

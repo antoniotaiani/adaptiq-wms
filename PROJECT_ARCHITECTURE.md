@@ -13,7 +13,8 @@ adaptiq-wms/
 ├── docker-compose.yml               # Servizi: db (Postgres), web (FastAPI/Gunicorn), nginx (reverse proxy)
 ├── docker-compose.override.yml      # Solo locale: espone debugpy (5678) e avvia con --reload per il debug in VS Code
 ├── Dockerfile                       # Build immagine applicativa Python 3.11-slim
-├── requirements.txt                 # Dipendenze installate nell'immagine Docker
+├── requirements.txt                 # Dipendenze dirette (da modificare a mano)
+├── requirements.lock                # Versioni esatte di tutte le dipendenze, installate nell'immagine Docker
 ├── requirements-dev.txt             # Dipendenze del venv locale (solo per Pylance/autocompletamento IDE)
 ├── PROJECT_ARCHITECTURE.md          # [Questo documento] Mappa architetturale e flussi
 ├── manual.html                      # Manuale utente standalone
@@ -131,9 +132,9 @@ Parametri SMTP centralizzati (riga singola in DB), upload dei loghi (`logo.png` 
 ## 6. Infrastruttura (Docker / Nginx)
 
 - **`db`**: `postgres:16-alpine`, healthcheck `pg_isready`, volume persistente `postgres_data`.
-- **`web`**: build da `Dockerfile` (Python 3.11-slim), monta a caldo `app/`, `templates/`, `static/`; all'avvio installa alcune dipendenze extra runtime (`aiosmtplib`, `reportlab`, `email-validator`, `pydantic[email]`, `python-multipart`) e lancia `gunicorn` con worker `uvicorn.workers.UvicornWorker` (`-w 4`). Attende che `db` sia healthy.
+- **`web`**: build da `Dockerfile` (Python 3.11-slim), monta a caldo `app/`, `templates/`, `static/`; le dipendenze sono installate in build da `requirements.lock` (versioni esatte); lancia `gunicorn` con worker `uvicorn.workers.UvicornWorker` (`-w 2`). Attende che `db` sia healthy.
 - **`nginx`**: reverse proxy sulla porta 80, security header (`X-Frame-Options`, `X-Content-Type-Options`, ecc.), rate limiting globale (30r/s) e dedicato più stringente su `/api/merchant/login` (5r/m, burst 3) per mitigare il brute-force sul PIN.
-- **`docker-compose.override.yml`** (solo ambiente locale, non committato in produzione): sostituisce l'avvio con `debugpy` in `--wait-for-client` e `uvicorn --reload`, espone la porta 5678 per il debugger di VS Code (vedi `.vscode/launch.json`).
+- **`docker-compose.override.yml`** (solo ambiente locale, non committato in produzione): sostituisce l'avvio con `debugpy` e `uvicorn --reload` (l'app parte subito, il debugger di VS Code può collegarsi in qualsiasi momento), espone la porta 5678 per il debugger (vedi `.vscode/launch.json`) e nginx su `127.0.0.1:8080`.
 - **Ciclo di vita app (`lifespan` in `main.py`)**: all'avvio acquisisce un `pg_advisory_lock` per serializzare la creazione schema tra repliche multiple, esegue `Base.metadata.create_all`, e — se il DB è vuoto — inserisce due mandanti e quattro articoli demo.
 
 ---

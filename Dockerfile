@@ -12,15 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Installazione librerie Python richieste da AdaptiQ
-RUN pip install --no-cache-dir \
-    fastapi \
-    uvicorn[standard] \
-    gunicorn \
-    sqlalchemy \
-    asyncpg \
-    pydantic \
-    jinja2 \
-    python-jose[cryptography]
+# (versioni esatte da requirements.lock)
+COPY requirements.lock /app/
+RUN pip install --no-cache-dir -r requirements.lock
 
 # Copia del codice applicativo
 COPY app/ /app/app/
