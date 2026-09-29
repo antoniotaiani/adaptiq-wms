@@ -10,7 +10,7 @@ from app.models import Merchant, Item
 from app.auth import hash_pin
 
 # Importazione di TUTTI i router necessari
-from app.routers import views, merchants, inventory, inbound, outbound, items, config, operator
+from app.routers import views, merchants, inventory, inbound, outbound, items, config, operator, billing
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -71,3 +71,4 @@ app.include_router(outbound.router)
 app.include_router(items.router)
 app.include_router(config.router)
 app.include_router(operator.router)
+app.include_router(billing.router)

@@ -26,7 +26,8 @@ adaptiq-wms/
 │   ├── database.py                  # Engine asyncpg, sessionmaker, dependency get_db()
 │   ├── config.py                    # Variabili d'ambiente: DATABASE_URL, JWT_SECRET/ALGORITHM/EXPIRATION, path static/templates
 │   ├── models.py                    # Modelli SQLAlchemy: Merchant, Item, InventoryTransaction, DispatchOrder,
-│   │                                 #   DispatchOrderLine, SmtpSettings, OperatorUser, AuditLog
+│   │                                 #   DispatchOrderLine, SmtpSettings, OperatorUser, AuditLog,
+│   │                                 #   BillingPhase, BillingService, PriceList, PriceListLine, InboundReceipt, BillingCharge
 │   ├── schemas.py                   # Modelli Pydantic (Request/Response DTO per le API)
 │   ├── auth.py                      # Hash/verify PIN (PBKDF2-HMAC-SHA256), firma/verifica JWT, dependency per
 │   │                                 #   sessione operatore, mandante, o entrambe (token via cookie HttpOnly)
@@ -35,6 +36,7 @@ adaptiq-wms/
 │   ├── db_migrations.py             # Applica le migrazioni Alembic all'avvio (marca alla baseline i DB creati prima di Alembic)
 │   ├── migrations/                  # Alembic: env.py, alembic.ini (uso da CLI), versions/ (una migrazione per ogni modifica allo schema)
 │   ├── email_utils.py               # Config SMTP da DB, invio email asincrono (aiosmtplib) con allegato PDF
+│   ├── billing.py                   # Basi di calcolo dei servizi addebitabili, tariffa del mandante, validazione e prezzatura degli addebiti
 │   └── routers/                     # Router modulari registrati in FastAPI
 │       ├── __init__.py
 │       ├── views.py                 # Rotte HTML: "/" (operator.html) e "/portal" (portal.html)
@@ -46,7 +48,8 @@ adaptiq-wms/
 │       ├── inbound.py                # Ricezione merci: registrazione DDT fornitore, generazione SKU automatica, storico carichi
 │       ├── outbound.py               # Validazione preventiva DDT, evasione ordine (fulfill), generazione PDF DDT,
 │       │                            #   invio email al mandante, storico spedizioni, dettaglio ordine
-│       └── config.py                 # Configurazione SMTP, upload loghi personalizzati, consultazione audit log
+│       ├── config.py                 # Configurazione SMTP, upload loghi personalizzati, consultazione audit log
+│       └── billing.py                # Modulo costi: fasi, servizi addebitabili, listini prezzi
 │
 ├── nginx/
 │   └── nginx.conf                   # Reverse proxy porta 80, rate limiting su /api/merchant/login e globale, security headers
@@ -68,7 +71,7 @@ adaptiq-wms/
 
 | Tabella | Scopo | Campi/vincoli chiave |
 |---|---|---|
-| `merchants` | Anagrafica committenti | `account_code` (univoco), `pin_hash`, `email`/`phone` opzionali |
+| `merchants` | Anagrafica committenti | `account_code` (univoco), `pin_hash`, `email`/`phone` opzionali, `price_list_id` (listino applicato) |
 | `items` | Catalogo/giacenze per mandante | `sku` PK, `barcode`, `on_hand_qty`; vincolo univoco `(merchant_id, barcode)` — lo stesso barcode può coesistere su mandanti diversi |
 | `inventory_transactions` | Storico movimenti (carico, scarico, rettifica) | `sku` FK, `transaction_type`, `quantity` (può essere negativo) |
 | `dispatch_orders` | Testata ordine/spedizione evaso | `order_number`, `merchant_id`, `status`, `total_units` |
@@ -76,6 +79,12 @@ adaptiq-wms/
 | `smtp_settings` | Configurazione server SMTP (riga singola, id=1) | host/porta/credenziali, `use_tls`, `portal_base_url` |
 | `operator_users` | Utenze operatore del terminale (es. `admin`) | `username` univoco, `password_hash` |
 | `audit_log` | Traccia delle azioni sensibili (Fase 6) | `actor`, `action`, `target`, `details` |
+| `billing_phases` | Fasi del processo a cui si imputano i costi (Fase 7) | `code` univoco, `sort_order` |
+| `billing_services` | Servizi addebitabili (voci di costo) | `code` univoco, `phase_id`, `basis` (vedi `app/billing.py`), `unit_label`, `active` |
+| `price_lists` | Listini prezzi, associabili a più mandanti | `name` univoco, `active` |
+| `price_list_lines` | Prezzo di un servizio in un listino | `unit_price` Numeric(12,4); univoco `(price_list_id, service_id)` |
+| `inbound_receipts` | Testata di un carico merce (Fase 2) | `merchant_id`, `doc_reference`, `received_at`, `total_units`; i movimenti la referenziano con `inventory_transactions.inbound_receipt_id` |
+| `billing_charges` | Costi imputati ai mandanti | legati a `dispatch_order_id` o `inbound_receipt_id`; servizio, fase, unità e `unit_price` copiati al momento dell'addebito; `quantity`, `amount`, `charge_date` (= data del documento) |
 
 ---
 
@@ -102,6 +111,7 @@ Due ambiti di sessione, entrambi con **JWT firmato con la stessa chiave** (`JWT_
 | `inbound.py` | `/api/inbound` | `POST /ddt` (registrazione carico + generazione SKU automatica), `GET /history` |
 | `outbound.py` | `/api/orders` | `POST /validate-ddt`, `GET /check/{order_number}`, `POST /fulfill` (evasione + PDF + email), `GET /history`, `GET /{order_id}` |
 | `config.py` | `/api/config` | `GET|POST /smtp`, `POST /logo/{target}` (upload loghi), `GET /audit-log` |
+| `billing.py` | `/api/billing` | `GET /meta` (basi di calcolo), `GET\|POST /phases`, `PUT\|DELETE /phases/{id}`, `GET\|POST /services`, `PUT\|DELETE /services/{id}`, `GET\|POST /price-lists` (anche duplicazione), `GET\|PUT\|DELETE /price-lists/{id}`, `GET /tariff/{merchant_id}` (servizi imputabili col prezzo del listino), `GET\|PUT /documents/{order\|receipt}/{id}/charges` (scheda costi del documento), `GET /summary` (riepilogo operazioni per mandante e periodo) |
 
 Tutti gli endpoint operativi (tranne login/init) richiedono la sessione operatore via dependency; gli endpoint `/merchant/me/*` e `/merchants/{id}/pin` richiedono la sessione mandante.
 
@@ -126,6 +136,11 @@ CRUD mandanti (creazione/modifica/cancellazione con controlli di dipendenza su S
 
 ### E. Configurazione, Personalizzazione e Audit (`config.py`, `audit.py`)
 Parametri SMTP centralizzati (riga singola in DB), upload dei loghi (`logo.png` / `logo_logistics.png`, max 3MB, PNG/JPEG/WEBP), consultazione dell'audit log con filtro per intervallo di date. Le azioni sensibili (modifica anagrafica, cancellazioni, cambio config SMTP, upload logo, reset/cambio password admin) vengono tracciate in `AuditLog` tramite `log_action()`, sulla stessa transazione dell'operazione principale.
+
+### G. Costi e Listini (`billing.py`)
+Anagrafica delle fasi e dei servizi addebitabili; ogni servizio ha una *base di calcolo* (per pallet/collo/pezzo/riga/ordine ricevuti o spediti, per posto pallet o m² al mese, manuale a ore/quantità/importo) definita in `app/billing.py`, che determina da dove verrà ricavata la quantità da addebitare. I listini assegnano un prezzo ai servizi (un servizio senza prezzo non si applica; i servizi `MANUAL_IMPORTO` non hanno prezzo di listino) e si associano ai mandanti da Fase 5. La migrazione `0003` precarica fasi, servizi e un "Listino Standard" con le tariffe del contratto quadro di micrologistica. Tutte le modifiche sono tracciate in audit log.
+
+**Scheda costi.** In Fase 1 (evasione) e Fase 2 (carico) l'operatore imputa i costi dell'operazione scegliendo tra i servizi con prezzo nel listino del mandante (più quelli a consuntivo); le quantità ricavabili dal documento (pezzi, referenze, ordine/DDT) sono suggerite e modificabili, pallet/colli/ore si inseriscono a mano. Gli addebiti (`billing_charges`) vengono salvati nella stessa transazione del documento da `apply_charges()`, che prezza lato server col listino attuale; la conferma senza costi è consentita previo avviso. Dall'archivio (Fase 3, storico carichi, riepilogo) la scheda si riapre per correggerla: le righe esistenti mantengono il prezzo originale, le nuove usano il listino attuale. **Riepilogo operazioni** (Fase 7): per mandante e periodo elenca carichi ed evasioni documento per documento con i costi imputati, evidenzia le operazioni senza costi, totalizza per fase/servizio; esportabile in CSV e stampabile.
 
 ### F. Autenticazione Operatore (`operator.py`)
 `POST /init` crea l'utente `admin` di bootstrap (idempotente) con password di default; login/logout via cookie `operator_token`; cambio password con verifica della vecchia, e reset diretto (senza vecchia password) per recovery amministrativa — entrambi tracciati in audit log.

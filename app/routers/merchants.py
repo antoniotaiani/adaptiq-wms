@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from typing import Optional
 
 from app.database import get_db
-from app.models import Merchant, Item, DispatchOrder, SmtpSettings
+from app.models import Merchant, Item, DispatchOrder, SmtpSettings, PriceList, BillingCharge, InboundReceipt
 from app.schemas import MerchantLoginRequest, CreateMerchantRequest, UpdatePinRequest, ResetPinRequest, UpdateMerchantRequest
 from app.auth import hash_pin, verify_pin, create_merchant_token, get_current_merchant_payload, get_current_operator_payload
 from app.config import JWT_EXPIRATION_HOURS
@@ -12,6 +12,11 @@ from app.email_utils import send_email_background
 from app.audit import log_action, actor_from_payload
 
 router = APIRouter(prefix="/api", tags=["Merchants"])
+
+
+async def _check_price_list(price_list_id, db: AsyncSession):
+    if price_list_id is not None and not await db.get(PriceList, price_list_id):
+        raise HTTPException(status_code=400, detail="Listino prezzi non valido.")
 
 @router.get("/merchants")
 async def get_merchants(
@@ -25,10 +30,13 @@ async def get_merchants(
             Merchant.company_name,
             Merchant.email,
             Merchant.phone,
-            func.count(Item.sku).label("sku_count")
+            func.count(Item.sku).label("sku_count"),
+            Merchant.price_list_id,
+            PriceList.name.label("price_list_name")
         )
         .outerjoin(Item, Merchant.id == Item.merchant_id)
-        .group_by(Merchant.id, Merchant.account_code, Merchant.company_name, Merchant.email, Merchant.phone)
+        .outerjoin(PriceList, Merchant.price_list_id == PriceList.id)
+        .group_by(Merchant.id, Merchant.account_code, Merchant.company_name, Merchant.email, Merchant.phone, PriceList.name)
         .order_by(Merchant.company_name.asc())
     )
     res = await db.execute(stmt)
@@ -39,7 +47,9 @@ async def get_merchants(
         "company_name": r[2], 
         "email": r[3],
         "phone": r[4],
-        "sku_count": r[5]
+        "sku_count": r[5],
+        "price_list_id": r[6],
+        "price_list_name": r[7]
     } for r in rows]
 
 
@@ -62,13 +72,15 @@ async def create_merchant(
     existing = await db.execute(select(Merchant).where(Merchant.account_code == code))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail=f"Il codice account '{code}' è già esistente.")
+    await _check_price_list(payload.price_list_id, db)
 
     new_m = Merchant(
         account_code=code, 
         company_name=name, 
         pin_hash=hash_pin(pin),
         email=email,
-        phone=phone
+        phone=phone,
+        price_list_id=payload.price_list_id
     )
     db.add(new_m)
     await db.commit()
@@ -120,7 +132,8 @@ async def get_merchant_detail(
         "company_name": merchant.company_name,
         "email": merchant.email,
         "phone": merchant.phone,
-        "sku_count": sku_count
+        "sku_count": sku_count,
+        "price_list_id": merchant.price_list_id
     }
 
 
@@ -143,7 +156,15 @@ async def update_merchant(
     merchant.email = payload.email.strip() if payload.email and payload.email.strip() else None
     merchant.phone = payload.phone.strip() if payload.phone and payload.phone.strip() else None
 
-    await log_action(db, actor_from_payload(op), "MODIFICA_ANAGRAFICA", f"merchant:{merchant.account_code}", f"Dati aggiornati per '{name}'.")
+    details = f"Dati aggiornati per '{name}'."
+    # Il listino si tocca solo se il campo è nel payload: null esplicito = nessun listino.
+    if "price_list_id" in payload.model_fields_set and payload.price_list_id != merchant.price_list_id:
+        await _check_price_list(payload.price_list_id, db)
+        new_list = await db.get(PriceList, payload.price_list_id) if payload.price_list_id else None
+        merchant.price_list_id = payload.price_list_id
+        details += f" Listino: {new_list.name if new_list else 'nessuno'}."
+
+    await log_action(db, actor_from_payload(op), "MODIFICA_ANAGRAFICA", f"merchant:{merchant.account_code}", details)
     await db.commit()
     return {"status": "ok", "message": f"Dati di '{name}' aggiornati con successo."}
 
@@ -164,6 +185,14 @@ async def delete_merchant(
         raise HTTPException(
             status_code=400,
             detail=f"Impossibile cancellare '{merchant.company_name}': ha ancora {sku_count} referenze a magazzino. Storna prima gli articoli dall'inventario."
+        )
+
+    history_res = await db.execute(select(InboundReceipt.id).where(InboundReceipt.merchant_id == merchant_id).limit(1))
+    charges_res = await db.execute(select(BillingCharge.id).where(BillingCharge.merchant_id == merchant_id).limit(1))
+    if history_res.first() or charges_res.first():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Impossibile cancellare '{merchant.company_name}': esistono carichi o costi registrati a suo nome."
         )
 
     orders_res = await db.execute(select(DispatchOrder).where(DispatchOrder.merchant_id == merchant_id).limit(1))

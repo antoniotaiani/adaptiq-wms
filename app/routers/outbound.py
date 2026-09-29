@@ -19,6 +19,8 @@ from app.schemas import DispatchFulfillRequest
 from app.email_utils import send_email_background, check_smtp_configured
 from app.auth import get_current_operator_payload, get_operator_or_merchant_payload
 from app.timeutils import now_str as local_now_str
+from app.billing import apply_charges
+from app.audit import actor_from_payload
 
 router = APIRouter(prefix="/api/orders", tags=["Outbound"])
 
@@ -296,6 +298,11 @@ async def fulfill_order(
         )
         db.add(tx)
 
+    charges_total = await apply_charges(
+        db, merchant, payload.charges, source_type="OUTBOUND", charge_date=now_str,
+        actor=actor_from_payload(op), dispatch_order_id=disp_order.id,
+    )
+
     try:
         await db.commit()
     except IntegrityError:
@@ -349,6 +356,7 @@ async def fulfill_order(
         "status": "success", 
         "order_id": disp_order.id, 
         "timestamp": now_str,
+        "charges_total": float(charges_total),
         "email_info": email_status_info
     }
 

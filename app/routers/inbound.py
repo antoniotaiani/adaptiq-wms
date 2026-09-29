@@ -5,9 +5,11 @@ from typing import Optional
 import traceback
 
 from app.database import get_db
-from app.models import Item, Merchant, InventoryTransaction
+from app.models import Item, Merchant, InventoryTransaction, InboundReceipt
 from app.schemas import InboundDDTRequest
 from app.auth import get_current_operator_payload
+from app.audit import actor_from_payload
+from app.billing import apply_charges
 from app.timeutils import now_str as local_now_str, now_local
 
 router = APIRouter(prefix="/api/inbound", tags=["Inbound"], dependencies=[Depends(get_current_operator_payload)])
@@ -35,6 +37,7 @@ async def get_next_sku_sequence(prefix: str, db: AsyncSession) -> int:
 async def receive_inbound_ddt(
     payload: InboundDDTRequest,
     allow_shared_barcode: bool = False,
+    op: dict = Depends(get_current_operator_payload),
     db: AsyncSession = Depends(get_db)
 ):
     if not payload.items:
@@ -186,15 +189,30 @@ async def receive_inbound_ddt(
 
         await db.flush()
 
+        receipt = InboundReceipt(
+            merchant_id=payload.merchant_id,
+            doc_reference=doc_ref,
+            received_at=now_str,
+            total_units=sum(qty for _, qty in processed_lines)
+        )
+        db.add(receipt)
+        await db.flush()
+
         for sku_code, qty in processed_lines:
             tx = InventoryTransaction(
                 timestamp=now_str,
                 sku=sku_code,
                 transaction_type="INBOUND_RECEIVE",
                 quantity=qty,
-                doc_reference=doc_ref
+                doc_reference=doc_ref,
+                inbound_receipt_id=receipt.id
             )
             db.add(tx)
+
+        charges_total = await apply_charges(
+            db, merchant, payload.charges, source_type="INBOUND", charge_date=now_str,
+            actor=actor_from_payload(op), inbound_receipt_id=receipt.id,
+        )
 
         await db.commit()
 
@@ -216,7 +234,9 @@ async def receive_inbound_ddt(
         "status": "ok",
         "message": f"DDT {doc_ref} registrato con successo. Elaborati {len(payload.items)} articoli.",
         "doc_reference": doc_ref,
-        "items_count": len(payload.items)
+        "items_count": len(payload.items),
+        "receipt_id": receipt.id,
+        "charges_total": float(charges_total)
     }
 
 
@@ -238,6 +258,7 @@ async def inbound_history(
             InventoryTransaction.doc_reference,
             InventoryTransaction.sku,
             InventoryTransaction.quantity,
+            InventoryTransaction.inbound_receipt_id,
             Item.barcode,
             Item.description,
             Item.bin_location,
@@ -265,16 +286,17 @@ async def inbound_history(
 
     return [
         {
-            "id": r[0],
-            "timestamp": r[1],
-            "doc_reference": r[2],
-            "sku": r[3],
-            "quantity": r[4],
-            "barcode": r[5],
-            "description": r[6],
-            "bin_location": r[7],
-            "merchant_id": r[8],
-            "merchant_name": r[9],
+            "id": r.id,
+            "timestamp": r.timestamp,
+            "doc_reference": r.doc_reference,
+            "sku": r.sku,
+            "quantity": r.quantity,
+            "receipt_id": r.inbound_receipt_id,
+            "barcode": r.barcode,
+            "description": r.description,
+            "bin_location": r.bin_location,
+            "merchant_id": r.merchant_id,
+            "merchant_name": r.company_name,
         }
         for r in rows
     ]

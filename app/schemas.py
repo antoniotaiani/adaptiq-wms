@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
@@ -21,6 +22,7 @@ class CreateMerchantRequest(BaseModel):
     pin: str = Field(..., min_length=8, description="Il PIN per le nuove utenze deve essere di almeno 8 caratteri")
     email: Optional[str] = None
     phone: Optional[str] = None
+    price_list_id: Optional[int] = None
 
 MerchantCreateRequest = CreateMerchantRequest
 
@@ -37,6 +39,8 @@ class UpdateMerchantRequest(BaseModel):
     company_name: str = Field(..., min_length=1)
     email: Optional[str] = None
     phone: Optional[str] = None
+    # Aggiornato solo se presente nel payload (vedi model_fields_set in update_merchant)
+    price_list_id: Optional[int] = None
 
 class OperatorLoginRequest(BaseModel):
     username: str = Field(..., min_length=1)
@@ -69,6 +73,7 @@ class InboundDDTRequest(BaseModel):
     merchant_id: int = Field(..., gt=0)
     doc_reference: str = Field(..., min_length=1)
     items: List[InboundDDTItem] = Field(..., min_items=1)
+    charges: List["ChargeInput"] = []
 
 # ==========================================
 # SCHEMI ORDINI & SPEDIZIONI
@@ -94,6 +99,7 @@ class DispatchFulfillRequest(BaseModel):
     order_number: str
     merchant_id: int
     items: List[DispatchItem]
+    charges: List["ChargeInput"] = []
 
 OrderFulfillItem = DispatchItem
 OrderFulfillRequest = DispatchFulfillRequest
@@ -105,3 +111,50 @@ class InventoryAdjustRequest(BaseModel):
     sku: str
     new_quantity: int = Field(..., ge=0)
     reason: str
+
+# ==========================================
+# SCHEMI MODULO COSTI (FASI, SERVIZI, LISTINI)
+# ==========================================
+class BillingPhaseRequest(BaseModel):
+    code: str = Field(..., min_length=1, max_length=30)
+    name: str = Field(..., min_length=1, max_length=100)
+    sort_order: int = 0
+
+class BillingServiceRequest(BaseModel):
+    code: str = Field(..., min_length=1, max_length=40)
+    name: str = Field(..., min_length=1, max_length=150)
+    description: Optional[str] = Field(default=None, max_length=500)
+    phase_id: int
+    basis: str
+    unit_label: str = Field(..., min_length=1, max_length=40)
+    active: bool = True
+
+class PriceListCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)
+    notes: Optional[str] = Field(default=None, max_length=500)
+    copy_from_id: Optional[int] = None
+
+class PriceListPrice(BaseModel):
+    service_id: int
+    unit_price: Decimal = Field(..., ge=0, max_digits=12, decimal_places=4)
+
+class PriceListUpdateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)
+    notes: Optional[str] = Field(default=None, max_length=500)
+    active: bool = True
+    prices: List[PriceListPrice] = []
+
+class ChargeInput(BaseModel):
+    """Riga della scheda costi. `id` presente = riga già salvata (se ne aggiorna la quantità,
+    il prezzo resta quello dell'addebito originale). `amount` solo per i servizi a consuntivo."""
+    id: Optional[int] = None
+    service_id: int
+    quantity: Decimal = Field(..., gt=0, max_digits=12, decimal_places=3)
+    amount: Optional[Decimal] = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    notes: Optional[str] = Field(default=None, max_length=255)
+
+class DocumentChargesRequest(BaseModel):
+    charges: List[ChargeInput] = []
+
+InboundDDTRequest.model_rebuild()
+DispatchFulfillRequest.model_rebuild()
