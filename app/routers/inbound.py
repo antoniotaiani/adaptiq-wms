@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
 from typing import Optional
 import traceback
 
@@ -9,6 +8,7 @@ from app.database import get_db
 from app.models import Item, Merchant, InventoryTransaction
 from app.schemas import InboundDDTRequest
 from app.auth import get_current_operator_payload
+from app.timeutils import now_str as local_now_str, now_local
 
 router = APIRouter(prefix="/api/inbound", tags=["Inbound"], dependencies=[Depends(get_current_operator_payload)])
 
@@ -43,7 +43,7 @@ async def receive_inbound_ddt(
             detail="Il DDT non contiene articoli."
         )
 
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = local_now_str()
     doc_ref = payload.doc_reference.strip()
 
     raw_barcodes = [
@@ -107,7 +107,7 @@ async def receive_inbound_ddt(
                 )
 
         clean_code = merchant.account_code.replace("MCH-", "").replace(" ", "").upper()
-        prefix = f"SKU-{clean_code}-{datetime.now().year}-"
+        prefix = f"SKU-{clean_code}-{now_local().year}-"
 
         current_seq = await get_next_sku_sequence(prefix, db)
         assigned_in_doc = set()

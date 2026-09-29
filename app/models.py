@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint, Boolean, Index, func
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -58,6 +58,12 @@ class DispatchOrder(Base):
 
     merchant = relationship("Merchant", back_populates="orders")
     lines = relationship("DispatchOrderLine", back_populates="order")
+
+    __table_args__ = (
+        # Un documento può essere evaso una sola volta per mandante (confronto case-insensitive,
+        # come nei controlli applicativi): blocca anche i doppi invii simultanei.
+        Index("uq_dispatch_orders_merchant_order", "merchant_id", func.lower(order_number), unique=True),
+    )
 
 
 class DispatchOrderLine(Base):

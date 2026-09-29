@@ -4,7 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text, select, func
 
 from app.config import STATIC_DIR
-from app.database import engine, Base, AsyncSessionLocal
+from app.database import engine, AsyncSessionLocal
+from app.db_migrations import upgrade_to_head
 from app.models import Merchant, Item
 from app.auth import hash_pin
 
@@ -19,12 +20,14 @@ async def lifespan(app: FastAPI):
     async with engine.connect() as lock_conn:
         await lock_conn.execute(text("SELECT pg_advisory_lock(847291)"))
 
-        # Transazione dedicata SOLO al DDL: deve completare il commit (engine.begin() lo fa
-        # automaticamente in uscita dal blocco) PRIMA di aprire qualunque altra sessione,
+        # Transazione dedicata SOLO alle migrazioni: deve completare il commit (engine.begin()
+        # lo fa automaticamente in uscita dal blocco) PRIMA di aprire qualunque altra sessione,
         # altrimenti quest'ultima — su una connessione diversa — non vedrebbe ancora le
         # tabelle appena create (isolamento delle transazioni PostgreSQL).
+        # Lo schema è gestito da Alembic (app/migrations): ogni modifica ai modelli richiede
+        # una nuova migrazione, create_all non aggiungerebbe colonne a tabelle esistenti.
         async with engine.begin() as ddl_conn:
-            await ddl_conn.run_sync(Base.metadata.create_all)
+            await ddl_conn.run_sync(upgrade_to_head)
 
         async with AsyncSessionLocal() as session:
             result = await session.execute(select(func.count(Merchant.id)))

@@ -22,7 +22,7 @@ adaptiq-wms/
 │
 ├── app/                             # Core modulare del Backend
 │   ├── __init__.py
-│   ├── main.py                      # Istanza FastAPI, lifespan (init schema DB + seed dati demo), mount static, registrazione router
+│   ├── main.py                      # Istanza FastAPI, lifespan (migrazioni DB + seed dati demo), mount static, registrazione router
 │   ├── database.py                  # Engine asyncpg, sessionmaker, dependency get_db()
 │   ├── config.py                    # Variabili d'ambiente: DATABASE_URL, JWT_SECRET/ALGORITHM/EXPIRATION, path static/templates
 │   ├── models.py                    # Modelli SQLAlchemy: Merchant, Item, InventoryTransaction, DispatchOrder,
@@ -31,6 +31,9 @@ adaptiq-wms/
 │   ├── auth.py                      # Hash/verify PIN (PBKDF2-HMAC-SHA256), firma/verifica JWT, dependency per
 │   │                                 #   sessione operatore, mandante, o entrambe (token via cookie HttpOnly)
 │   ├── audit.py                     # Helper per scrivere voci di log in AuditLog (audit trail)
+│   ├── timeutils.py                 # Ora corrente nel fuso Europe/Rome (il container gira in UTC): usare now_str() per ogni timestamp
+│   ├── db_migrations.py             # Applica le migrazioni Alembic all'avvio (marca alla baseline i DB creati prima di Alembic)
+│   ├── migrations/                  # Alembic: env.py, alembic.ini (uso da CLI), versions/ (una migrazione per ogni modifica allo schema)
 │   ├── email_utils.py               # Config SMTP da DB, invio email asincrono (aiosmtplib) con allegato PDF
 │   └── routers/                     # Router modulari registrati in FastAPI
 │       ├── __init__.py
@@ -92,7 +95,7 @@ Due ambiti di sessione, entrambi con **JWT firmato con la stessa chiave** (`JWT_
 | Router | Prefix | Endpoint principali |
 |---|---|---|
 | `views.py` | `/` | `GET /` (operator.html), `GET /portal` (portal.html) |
-| `operator.py` | `/api/operator` | `POST /init`, `POST /login`, `POST /logout`, `POST /admin/change-password`, `POST /admin/reset-password` |
+| `operator.py` | `/api/operator` | `POST /init`, `POST /login`, `POST /logout`, `GET /me` (verifica sessione), `POST /admin/change-password`, `POST /admin/reset-password` |
 | `merchants.py` | `/api` | `GET|POST /merchants`, `GET|PUT|DELETE /merchants/{id}`, `POST /merchants/{id}/reset-pin`, `PUT /merchants/{id}/pin`, `POST /merchant/login`, `POST /merchant/logout`, `GET /merchant/me/inventory`, `GET /merchant/me/orders` |
 | `items.py` | `/api/items` | `POST /resolve` (lookup barcode/SKU per scanner, multi-tenant aware) |
 | `inventory.py` | `/api/inventory` | `GET ""` (giacenze), `POST /adjust` (rettifica), `DELETE /merchant-item/{sku}` (storno referenza) |
@@ -111,7 +114,7 @@ DDT fornitore → per ogni riga: se il barcode/SKU esiste già per quel mandante
 
 ### B. Evasione Spedizione (Outbound, `outbound.py`)
 1. `POST /validate-ddt` — controllo preventivo (giacenza sufficiente, articolo censito, ordine non già evaso) senza scrivere nulla.
-2. `POST /fulfill` — crea `DispatchOrder` + `DispatchOrderLine`, decrementa `on_hand_qty` con lock (`with_for_update`) per prevenire overpicking concorrente, verifica `picked_qty <= expected_qty` e `picked_qty <= on_hand_qty`, registra `InventoryTransaction` di tipo `OUTBOUND_PICK`.
+2. `POST /fulfill` — crea `DispatchOrder` + `DispatchOrderLine` (anagrafica riga letta dal DB, SKU filtrati per mandante; indice unico `uq_dispatch_orders_merchant_order` su mandante + numero documento case-insensitive), decrementa `on_hand_qty` con lock (`with_for_update`) per prevenire overpicking concorrente, verifica `picked_qty <= expected_qty` e `picked_qty <= on_hand_qty`, registra `InventoryTransaction` di tipo `OUTBOUND_PICK`.
 3. Genera in memoria il PDF ufficiale del DDT (ReportLab: intestazione, tabella articoli, sezione firme).
 4. Se il mandante ha un'email e l'SMTP è configurato, accoda in background (`BackgroundTasks`) l'invio email con il PDF allegato; altrimenti l'ordine viene comunque evaso e la UI riceve un messaggio esplicativo (`email_info`).
 
@@ -135,7 +138,7 @@ Parametri SMTP centralizzati (riga singola in DB), upload dei loghi (`logo.png` 
 - **`web`**: build da `Dockerfile` (Python 3.11-slim), monta a caldo `app/`, `templates/`, `static/`; le dipendenze sono installate in build da `requirements.lock` (versioni esatte); lancia `gunicorn` con worker `uvicorn.workers.UvicornWorker` (`-w 2`). Attende che `db` sia healthy.
 - **`nginx`**: reverse proxy sulla porta 80, security header (`X-Frame-Options`, `X-Content-Type-Options`, ecc.), rate limiting globale (30r/s) e dedicato più stringente su `/api/merchant/login` (5r/m, burst 3) per mitigare il brute-force sul PIN.
 - **`docker-compose.override.yml`** (solo ambiente locale, non committato in produzione): sostituisce l'avvio con `debugpy` e `uvicorn --reload` (l'app parte subito, il debugger di VS Code può collegarsi in qualsiasi momento), espone la porta 5678 per il debugger (vedi `.vscode/launch.json`) e nginx su `127.0.0.1:8080`.
-- **Ciclo di vita app (`lifespan` in `main.py`)**: all'avvio acquisisce un `pg_advisory_lock` per serializzare la creazione schema tra repliche multiple, esegue `Base.metadata.create_all`, e — se il DB è vuoto — inserisce due mandanti e quattro articoli demo.
+- **Ciclo di vita app (`lifespan` in `main.py`)**: all'avvio acquisisce un `pg_advisory_lock` per serializzare la creazione schema tra repliche multiple, applica le migrazioni Alembic (`alembic upgrade head`; lo schema non va più creato con `create_all`), e — se il DB è vuoto — inserisce due mandanti e quattro articoli demo.
 
 ---
 

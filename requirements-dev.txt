@@ -12,6 +12,7 @@ asyncpg
 pydantic
 jinja2
 python-jose[cryptography]
+alembic
 
 # --- installate a runtime da docker-compose.yml ---
 aiosmtplib

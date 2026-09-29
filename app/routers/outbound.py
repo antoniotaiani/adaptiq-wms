@@ -3,7 +3,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime
+from sqlalchemy.exc import IntegrityError
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -18,6 +18,7 @@ from app.models import Item, Merchant, DispatchOrder, DispatchOrderLine, Invento
 from app.schemas import DispatchFulfillRequest
 from app.email_utils import send_email_background, check_smtp_configured
 from app.auth import get_current_operator_payload, get_operator_or_merchant_payload
+from app.timeutils import now_str as local_now_str
 
 router = APIRouter(prefix="/api/orders", tags=["Outbound"])
 
@@ -214,7 +215,9 @@ async def fulfill_order(
         raise HTTPException(status_code=400, detail="Impossibile evadere un ordine privo di articoli.")
 
     order_num = payload.order_number.strip()
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if not order_num:
+        raise HTTPException(status_code=400, detail="Numero documento/ordine mancante.")
+    now_str = local_now_str()
 
     res_m = await db.execute(select(Merchant).where(Merchant.id == payload.merchant_id))
     merchant = res_m.scalar_one_or_none()
@@ -230,6 +233,10 @@ async def fulfill_order(
     if existing_order:
         raise HTTPException(status_code=409, detail=f"L'ordine [{order_num}] risulta già evaso.")
 
+    skus = [it.sku.strip() for it in payload.items]
+    if len(skus) != len(set(skus)):
+        raise HTTPException(status_code=400, detail="Lo stesso SKU compare più volte nell'ordine: unifica le quantità.")
+
     total_units = sum(i.picked_qty for i in payload.items)
     disp_order = DispatchOrder(
         order_number=order_num,
@@ -241,13 +248,19 @@ async def fulfill_order(
     db.add(disp_order)
     await db.flush()
 
+    order_lines = []
     for it in payload.items:
-        item_stmt = select(Item).where(Item.sku == it.sku).with_for_update()
+        # Il filtro sul mandante è lato server: il controllo nel frontend da solo non basta
+        # a impedire di scaricare la merce di un altro committente.
+        item_stmt = select(Item).where(
+            Item.sku == it.sku.strip(),
+            Item.merchant_id == payload.merchant_id
+        ).with_for_update()
         item_res = await db.execute(item_stmt)
         curr_item = item_res.scalar_one_or_none()
 
         if not curr_item:
-            raise HTTPException(status_code=404, detail=f"Lo SKU [{it.sku}] non esiste più nel catalogo.")
+            raise HTTPException(status_code=404, detail=f"Lo SKU [{it.sku}] non esiste nel catalogo di questo mandante.")
 
         if it.picked_qty <= 0:
             raise HTTPException(status_code=400, detail=f"Quantità prelevata non valida ({it.picked_qty}) per SKU [{it.sku}].")
@@ -260,27 +273,35 @@ async def fulfill_order(
 
         curr_item.on_hand_qty -= it.picked_qty
 
+        # Anagrafica della riga presa dal DB, non dal payload del browser: è quella che
+        # finisce nello storico e nel PDF del DDT.
         line = DispatchOrderLine(
             order_id=disp_order.id,
-            sku=it.sku,
-            barcode=it.barcode,
-            description=it.description,
-            bin_location=it.bin_location,
+            sku=curr_item.sku,
+            barcode=curr_item.barcode,
+            description=curr_item.description,
+            bin_location=curr_item.bin_location,
             expected_qty=it.expected_qty,
             picked_qty=it.picked_qty
         )
         db.add(line)
+        order_lines.append(line)
 
         tx = InventoryTransaction(
             timestamp=now_str,
-            sku=it.sku,
+            sku=curr_item.sku,
             transaction_type="OUTBOUND_PICK",
             quantity=-it.picked_qty,
             doc_reference=order_num
         )
         db.add(tx)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Vincolo uq_dispatch_orders_merchant_order: stesso documento evaso in parallelo.
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"L'ordine [{order_num}] risulta già evaso.")
 
     # --- VERIFICA CONFIGURAZIONE SMTP E GESTIONE INVIO EMAIL ---
     email_status_info = {"sent": False, "message": ""}
@@ -292,7 +313,7 @@ async def fulfill_order(
         if not is_smtp_valid:
             email_status_info["message"] = f"Ordine evaso, ma email non inviata: parametri SMTP incompleti o mancanti in Fase 6 ({smtp_err})."
         else:
-            pdf_bytes = generate_ddt_pdf(order_num, merchant.company_name, now_str, payload.items)
+            pdf_bytes = generate_ddt_pdf(order_num, merchant.company_name, now_str, order_lines)
             
             html_body = f"""
             <div style="font-family: Arial, sans-serif; color: #333;">

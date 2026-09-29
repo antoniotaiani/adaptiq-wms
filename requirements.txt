@@ -10,3 +10,4 @@ python-multipart>=0.0.9
 aiosmtplib==3.0.1
 reportlab==4.1.0
 email-validator
+alembic>=1.13

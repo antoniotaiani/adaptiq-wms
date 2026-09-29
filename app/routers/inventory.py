@@ -8,6 +8,7 @@ from app.models import Item, Merchant, InventoryTransaction, DispatchOrderLine
 from app.schemas import InventoryAdjustRequest
 from app.auth import get_current_operator_payload
 from app.audit import log_action, actor_from_payload
+from app.timeutils import now_str
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory"], dependencies=[Depends(get_current_operator_payload)])
 
@@ -67,9 +68,8 @@ async def adjust_stock(payload: InventoryAdjustRequest, db: AsyncSession = Depen
     delta = payload.new_quantity - old_qty
     item.on_hand_qty = payload.new_quantity
 
-    from datetime import datetime
     tx = InventoryTransaction(
-        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        timestamp=now_str(),
         sku=item.sku,
         transaction_type=f"ADJUSTMENT ({payload.reason})",
         quantity=delta,

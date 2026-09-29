@@ -51,6 +51,11 @@ async def login(cred: OperatorLoginRequest, response: Response, db: AsyncSession
     )
     return {"status": "ok", "username": user.username}
 
+@router.get("/me")
+async def whoami(op: dict = Depends(get_current_operator_payload)):
+    """Usato dal terminale all'apertura per verificare che il cookie di sessione sia ancora valido."""
+    return {"status": "ok", "username": actor_from_payload(op)}
+
 @router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie("operator_token")

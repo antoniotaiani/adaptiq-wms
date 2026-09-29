@@ -726,13 +726,37 @@
     }
 
     // --- AUTENTICAZIONE OPERATORE ---
-    document.addEventListener("DOMContentLoaded", () => {
-        fetch("/api/operator/init", {method: "POST"}).catch(()=>{});
-        if (localStorage.getItem("op_logged_in") === "true") {
-            const overlay = document.getElementById("authOverlay");
-            if(overlay) overlay.style.display = "none";
-            loadMerchants();
+    // Qualunque risposta 401 dalle API (cookie scaduto dopo 12h, logout da altra scheda...)
+    // riporta alla schermata di login invece di lasciare la pagina con tabelle vuote.
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+        const res = await nativeFetch(input, init);
+        const url = typeof input === "string" ? input : input.url;
+        if (res.status === 401 && url.startsWith("/api/") && !url.startsWith("/api/operator/login")) {
+            showLoginOverlay("Sessione scaduta: effettua di nuovo l'accesso.");
         }
+        return res;
+    };
+
+    function showLoginOverlay(message) {
+        const overlay = document.getElementById("authOverlay");
+        if (overlay) overlay.style.removeProperty("display");
+        const err = document.getElementById("opLoginError");
+        if (err && message) { err.innerText = message; err.classList.remove("d-none"); }
+    }
+
+    function hideLoginOverlay() {
+        const overlay = document.getElementById("authOverlay");
+        if (overlay) overlay.style.setProperty("display", "none", "important");
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        await nativeFetch("/api/operator/init", {method: "POST"}).catch(()=>{});
+        // La sessione la decide il cookie lato server, non un flag nel browser.
+        try {
+            const res = await nativeFetch("/api/operator/me");
+            if (res.ok) { hideLoginOverlay(); loadMerchants(); }
+        } catch(e) {}
     });
 
     async function operatorLoginForce() {
@@ -749,11 +773,7 @@
             });
             
             if (res.ok) {
-                localStorage.setItem("op_logged_in", "true");
-                const overlay = document.getElementById("authOverlay");
-                if (overlay) {
-                    overlay.style.setProperty("display", "none", "important");
-                }
+                hideLoginOverlay();
                 loadMerchants();
             } else {
                 err.innerText = "Credenziali non valide."; 
@@ -767,7 +787,7 @@
 
     async function logoutOperator() {
         await fetch("/api/operator/logout", {method: "POST"});
-        localStorage.removeItem("op_logged_in"); location.reload();
+        location.reload();
     }
 
     // --- RESET PASSWORD ADMIN DIRETTO ---
