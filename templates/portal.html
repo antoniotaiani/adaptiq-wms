@@ -243,6 +243,11 @@
                 <i class="bi bi-truck me-1"></i> 2. Spedizioni Evase
             </button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold px-4 py-2" data-bs-toggle="tab" data-bs-target="#tab-costi" onclick="openCostsTab()" data-i18n="tab_costs">
+                <i class="bi bi-currency-euro me-1"></i> 3. Costi Servizi
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content">
@@ -320,6 +325,27 @@
                     </table>
                 </div>
             </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-costi">
+            <div class="card card-custom p-3 mb-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label m-0 small fw-bold" data-i18n="lbl_date_from">Dal:</label>
+                        <input type="date" id="costsDateFrom" class="form-control">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label m-0 small fw-bold" data-i18n="lbl_date_to">Al:</label>
+                        <input type="date" id="costsDateTo" class="form-control">
+                    </div>
+                    <div class="col-md-6 d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary fw-bold" onclick="loadCosts()" data-i18n="btn_show">Visualizza</button>
+                        <button class="btn btn-outline-secondary fw-bold" onclick="setCostsMonth(0)" data-i18n="btn_this_month">Mese corrente</button>
+                        <button class="btn btn-outline-secondary fw-bold" onclick="setCostsMonth(-1)" data-i18n="btn_last_month">Mese scorso</button>
+                    </div>
+                </div>
+            </div>
+            <div id="costsResult"></div>
         </div>
     </div>
 </section>
@@ -441,7 +467,34 @@
             prn_sig_wh: "Firma Responsabile Logistica Magazzino",
             prn_sig_client: "Firma Per Presa Visione Mandante",
             err_enter_creds: "Inserisci sia il codice identificativo che il PIN.",
-            err_invalid_creds: "Credenziali non valide o non autorizzate."
+            err_invalid_creds: "Credenziali non valide o non autorizzate.",
+            tab_costs: '<i class="bi bi-currency-euro me-1"></i> 3. Costi Servizi',
+            btn_show: "Visualizza",
+            btn_this_month: "Mese corrente",
+            btn_last_month: "Mese scorso",
+            costs_pick_period: "Scegli un periodo e premi <b>Visualizza</b>.",
+            costs_total: "Totale costi del periodo",
+            costs_shipments: "Spedizioni con costi",
+            costs_receipts: "Carichi con costi",
+            costs_by_phase: "Costi per fase",
+            costs_by_doc: "Dettaglio per documento",
+            costs_empty: "Nessun costo registrato nel periodo selezionato.",
+            th_phase: "Fase / Servizio",
+            th_quantity: "Quantità",
+            th_amount: "Importo",
+            th_unit_price: "Prezzo unitario",
+            th_type: "Tipo",
+            th_services: "Servizi",
+            th_date_short: "Data",
+            phase_total: "Totale fase",
+            grand_total: "Totale periodo",
+            kind_order: "Spedizione",
+            kind_receipt: "Carico merce",
+            kind_charge: "Addebito",
+            prn_costs_title: "RIEPILOGO COSTI DEI SERVIZI LOGISTICI",
+            prn_period: "Periodo",
+            err_period: "Indica le date di inizio e fine periodo.",
+            err_load: "Impossibile caricare il riepilogo dei costi."
         },
         en: {
             portal_subtext: "Merchant Real-time Inventory Portal",
@@ -495,12 +548,39 @@
             prn_sig_wh: "Facility Logistics Officer",
             prn_sig_client: "Merchant Representative Signature",
             err_enter_creds: "Please enter both account code and PIN.",
-            err_invalid_creds: "Invalid credentials or unauthorized account."
+            err_invalid_creds: "Invalid credentials or unauthorized account.",
+            tab_costs: '<i class="bi bi-currency-euro me-1"></i> 3. Service Costs',
+            btn_show: "Show",
+            btn_this_month: "This month",
+            btn_last_month: "Last month",
+            costs_pick_period: "Choose a period and press <b>Show</b>.",
+            costs_total: "Total costs for the period",
+            costs_shipments: "Shipments with costs",
+            costs_receipts: "Receipts with costs",
+            costs_by_phase: "Costs by phase",
+            costs_by_doc: "Detail by document",
+            costs_empty: "No costs recorded in the selected period.",
+            th_phase: "Phase / Service",
+            th_quantity: "Quantity",
+            th_amount: "Amount",
+            th_unit_price: "Unit price",
+            th_type: "Type",
+            th_services: "Services",
+            th_date_short: "Date",
+            phase_total: "Phase total",
+            grand_total: "Period total",
+            kind_order: "Shipment",
+            kind_receipt: "Goods receipt",
+            kind_charge: "Charge",
+            prn_costs_title: "LOGISTICS SERVICES COST SUMMARY",
+            prn_period: "Period",
+            err_period: "Enter both the start and end date.",
+            err_load: "Unable to load the cost summary."
         }
     };
 
     let currentLang = localStorage.getItem("adaptiq_lang") || "it";
-    let currentClient = null, cachedStock = [], cachedDdtDetail = null;
+    let currentClient = null, cachedStock = [], cachedDdtDetail = null, cachedCosts = null;
 
     function setLanguage(lang) {
         currentLang = lang;
@@ -521,6 +601,7 @@
         });
 
         if (cachedStock.length > 0) renderStockTable(cachedStock);
+        if (cachedCosts) renderCosts();
     }
 
     async function performLogin() {
@@ -755,6 +836,116 @@
                 <td style="text-align: center; font-weight: bold; color: green;">${r.picked_qty}</td>
             </tr>
         `).join("");
+        window.print();
+    }
+
+    // --- COSTI SERVIZI ---
+    const t = key => i18nPortal[currentLang][key];
+    const escHtml = v => String(v ?? "").replace(/[&<>"']/g, ch => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[ch]));
+    const fmtMoney = v => new Intl.NumberFormat(currentLang === "it" ? "it-IT" : "en-GB", {style: "currency", currency: "EUR"}).format(v || 0);
+    const fmtUnitPrice = v => new Intl.NumberFormat(currentLang === "it" ? "it-IT" : "en-GB", {style: "currency", currency: "EUR", maximumFractionDigits: 4}).format(v || 0);
+    const fmtQty = v => new Intl.NumberFormat(currentLang === "it" ? "it-IT" : "en-GB", {maximumFractionDigits: 3}).format(v || 0);
+    const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const fmtDay = iso => { const [y, m, d] = iso.slice(0, 10).split("-"); return `${d}/${m}/${y}`; };
+
+    function setCostsMonth(offset) {
+        const now = new Date(), first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+        const last = offset === 0 ? now : new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+        document.getElementById("costsDateFrom").value = isoDay(first);
+        document.getElementById("costsDateTo").value = isoDay(last);
+        loadCosts();
+    }
+
+    function openCostsTab() {
+        if(!document.getElementById("costsDateFrom").value) { setCostsMonth(0); return; }
+        if(!cachedCosts) loadCosts();
+    }
+
+    async function loadCosts() {
+        const from = document.getElementById("costsDateFrom").value, to = document.getElementById("costsDateTo").value;
+        const box = document.getElementById("costsResult");
+        if(!from || !to) { box.innerHTML = `<div class="alert alert-warning fw-semibold">${t("err_period")}</div>`; return; }
+        try {
+            const res = await fetch(`/api/merchant/me/costs?date_from=${from}&date_to=${to}`);
+            if(res.status === 401) { location.reload(); return; }
+            const data = await res.json();
+            if(!res.ok) { cachedCosts = null; box.innerHTML = `<div class="alert alert-danger fw-semibold">${escHtml(data.detail || t("err_load"))}</div>`; return; }
+            cachedCosts = data;
+            renderCosts();
+        } catch(e) {
+            console.error("Load costs error:", e);
+            box.innerHTML = `<div class="alert alert-danger fw-semibold">${t("err_load")}</div>`;
+        }
+    }
+
+    function kindLabel(kind) { return t({order: "kind_order", receipt: "kind_receipt"}[kind] || "kind_charge"); }
+
+    function renderCosts() {
+        const box = document.getElementById("costsResult"), d = cachedCosts;
+        if(!d) { box.innerHTML = `<p class="text-muted text-center my-5">${t("costs_pick_period")}</p>`; return; }
+        const nOrders = d.operations.filter(o => o.kind === "order").length, nReceipts = d.operations.filter(o => o.kind === "receipt").length;
+        const stats = `<div class="row g-3 mb-3">
+            <div class="col-md-4"><div class="card-custom stat-card" style="border-left-color: var(--accent-amber);"><span class="text-muted small fw-bold text-uppercase">${t("costs_total")}</span><div class="fs-2 fw-bold text-dark mt-1">${fmtMoney(d.grand_total)}</div><span class="small text-muted">${fmtDay(d.date_from)} – ${fmtDay(d.date_to)}</span></div></div>
+            <div class="col-md-4"><div class="card-custom stat-card"><span class="text-muted small fw-bold text-uppercase">${t("costs_shipments")}</span><div class="fs-2 fw-bold text-dark mt-1">${nOrders}</div></div></div>
+            <div class="col-md-4"><div class="card-custom stat-card" style="border-left-color: #10b981;"><span class="text-muted small fw-bold text-uppercase">${t("costs_receipts")}</span><div class="fs-2 fw-bold text-dark mt-1">${nReceipts}</div></div></div>
+        </div>`;
+        const actions = `<div class="d-flex justify-content-end gap-2 mb-3">
+            <button class="btn btn-outline-secondary fw-bold shadow-sm" onclick="exportCostsCsv()" ${d.operations.length ? "" : "disabled"}>${t("btn_export_csv")}</button>
+            <button class="btn btn-brand-amber fw-bold shadow-sm" onclick="printCostsReport()" ${d.operations.length ? "" : "disabled"}><i class="bi bi-printer me-1"></i> ${currentLang === "it" ? "Stampa" : "Print"}</button>
+        </div>`;
+        if(!d.operations.length) { box.innerHTML = stats + `<div class="card card-custom p-4 text-center text-muted">${t("costs_empty")}</div>`; return; }
+
+        const phaseRows = d.phase_totals.map(p => `
+            <tr class="table-light"><td colspan="2" class="fw-bold text-uppercase small text-secondary">${escHtml(p.phase_name)}</td><td class="text-end fw-bold">${fmtMoney(p.amount)}</td></tr>
+            ${p.services.map(s => `<tr><td class="ps-4">${escHtml(s.service_name)}</td><td class="text-end text-nowrap">${fmtQty(s.quantity)} <small class="text-muted">${escHtml(s.unit_label)}</small></td><td class="text-end">${fmtMoney(s.amount)}</td></tr>`).join("")}`).join("");
+        const byPhase = `<div class="card card-custom overflow-hidden mb-3"><div class="p-3 pb-0"><h5 class="fw-bold">${t("costs_by_phase")}</h5></div><div class="table-responsive"><table class="table align-middle m-0">
+            <thead class="table-dark"><tr><th>${t("th_phase")}</th><th class="text-end" style="width: 160px;">${t("th_quantity")}</th><th class="text-end" style="width: 160px;">${t("th_amount")}</th></tr></thead>
+            <tbody>${phaseRows}</tbody>
+            <tfoot><tr><td colspan="2" class="text-end fw-bold">${t("grand_total")}</td><td class="text-end fw-bold fs-5">${fmtMoney(d.grand_total)}</td></tr></tfoot>
+        </table></div></div>`;
+
+        const docRows = d.operations.map(o => `<tr>
+            <td class="text-nowrap">${fmtDay(o.date)}</td>
+            <td><span class="badge ${o.kind === "order" ? "bg-primary" : o.kind === "receipt" ? "bg-success" : "bg-secondary"}">${kindLabel(o.kind)}</span></td>
+            <td class="font-monospace fw-bold">${escHtml(o.reference)}</td>
+            <td class="small">${o.charges.map(c => `${escHtml(c.service_name)}: ${fmtQty(c.quantity)} ${escHtml(c.unit_label)} × ${fmtUnitPrice(c.unit_price)} = <b>${fmtMoney(c.amount)}</b>`).join("<br>")}</td>
+            <td class="text-end fw-bold">${fmtMoney(o.total)}</td>
+        </tr>`).join("");
+        const byDoc = `<div class="card card-custom overflow-hidden"><div class="p-3 pb-0"><h5 class="fw-bold">${t("costs_by_doc")}</h5></div><div class="table-responsive"><table class="table table-hover align-middle m-0">
+            <thead class="table-light"><tr><th>${t("th_date_short")}</th><th>${t("th_type")}</th><th>${t("th_doc_number")}</th><th>${t("th_services")}</th><th class="text-end">${t("th_amount")}</th></tr></thead>
+            <tbody>${docRows}</tbody>
+        </table></div></div>`;
+        box.innerHTML = stats + actions + byPhase + byDoc;
+    }
+
+    function exportCostsCsv() {
+        const d = cachedCosts; if(!d) return;
+        const num = v => String(v).replace(".", currentLang === "it" ? "," : ".");
+        const rows = [[t("th_date_short"), t("th_type"), t("th_doc_number"), currentLang === "it" ? "Fase" : "Phase", currentLang === "it" ? "Servizio" : "Service", t("th_quantity"), currentLang === "it" ? "Unità" : "Unit", t("th_unit_price"), t("th_amount")]];
+        d.operations.forEach(o => o.charges.forEach(c => rows.push([o.date.slice(0, 10), kindLabel(o.kind), o.reference, c.phase_name, c.service_name, num(c.quantity), c.unit_label, num(c.unit_price), num(c.amount)])));
+        rows.push(["", "", "", "", "", "", "", t("grand_total"), num(d.grand_total)]);
+        const csvContent = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+        const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob), a = document.createElement("a");
+        const safeName = (currentClient?.company_name || "mandante").replace(/[^a-z0-9]+/gi, "_");
+        a.href = url; a.download = `costi_${safeName}_${d.date_from}_${d.date_to}.csv`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+
+    function printCostsReport() {
+        const d = cachedCosts; if(!d) return;
+        document.getElementById("prnDocTitle").innerText = t("prn_costs_title");
+        document.getElementById("prnSubTitle").innerText = t("prn_inv_sub");
+        document.getElementById("prnClientName").innerText = currentClient.company_name;
+        document.getElementById("prnTimestamp").innerText = new Date().toLocaleString();
+        document.getElementById("prnSignatureWh").innerText = t("prn_sig_wh");
+        document.getElementById("prnSignatureClient").innerText = t("prn_sig_client");
+        document.getElementById("prnCustomHeader").innerHTML = `<b>${t("prn_period")}:</b> ${fmtDay(d.date_from)} – ${fmtDay(d.date_to)} &nbsp;|&nbsp; <b>${t("grand_total")}:</b> <b style="color: #15803d;">${fmtMoney(d.grand_total)}</b>`;
+        document.getElementById("prnTableHead").innerHTML = `<tr><th>${t("th_phase")}</th><th style="width: 18%; text-align: right;">${t("th_quantity")}</th><th style="width: 18%; text-align: right;">${t("th_amount")}</th></tr>`;
+        document.getElementById("prnTableBody").innerHTML = d.phase_totals.map(p => `
+            <tr><td colspan="2" style="font-weight: bold; background: #f1f5f9;">${escHtml(p.phase_name)}</td><td style="text-align: right; font-weight: bold; background: #f1f5f9;">${fmtMoney(p.amount)}</td></tr>
+            ${p.services.map(s => `<tr><td style="padding-left: 18px;">${escHtml(s.service_name)}</td><td style="text-align: right;">${fmtQty(s.quantity)} ${escHtml(s.unit_label)}</td><td style="text-align: right;">${fmtMoney(s.amount)}</td></tr>`).join("")}`).join("")
+            + `<tr><td colspan="2" style="text-align: right; font-weight: bold;">${t("grand_total")}</td><td style="text-align: right; font-weight: bold;">${fmtMoney(d.grand_total)}</td></tr>`;
         window.print();
     }
 

@@ -10,6 +10,7 @@ from app.auth import hash_pin, verify_pin, create_merchant_token, get_current_me
 from app.config import JWT_EXPIRATION_HOURS
 from app.email_utils import send_email_background
 from app.audit import log_action, actor_from_payload
+from app.billing import build_operations_summary
 
 router = APIRouter(prefix="/api", tags=["Merchants"])
 
@@ -350,3 +351,29 @@ async def merchant_live_orders(
         {"id": o.id, "order_number": o.order_number, "processed_at": o.processed_at, "total_units": o.total_units, "status": o.status}
         for o in rows
     ]
+
+
+@router.get("/merchant/me/costs")
+async def merchant_costs_summary(
+    date_from: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    date_to: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    auth: dict = Depends(get_current_merchant_payload),
+    db: AsyncSession = Depends(get_db)
+):
+    """Riepilogo dei costi del mandante nel periodo, per fase e documento per documento.
+    Versione per il portale: solo le operazioni con costi, senza note interne né operatore."""
+    merchant = await db.get(Merchant, int(auth["sub"]))
+    if not merchant:
+        raise HTTPException(status_code=401, detail="Session expired or not authenticated.")
+    summary = await build_operations_summary(db, merchant, date_from, date_to)
+    charge_fields = ("service_name", "phase_name", "unit_label", "quantity", "unit_price", "amount")
+    return {
+        "date_from": summary["date_from"], "date_to": summary["date_to"],
+        "grand_total": summary["grand_total"],
+        "phase_totals": summary["phase_totals"],
+        "operations": [
+            {"kind": op["kind"], "reference": op["reference"], "date": op["date"], "units": op["units"], "total": op["total"],
+             "charges": [{k: c[k] for k in charge_fields} for c in op["charges"]]}
+            for op in summary["operations"] if op["charges"]
+        ],
+    }

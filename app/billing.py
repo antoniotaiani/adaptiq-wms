@@ -16,7 +16,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import BillingCharge, BillingPhase, BillingService, PriceListLine
+from app.models import BillingCharge, BillingPhase, BillingService, PriceListLine, DispatchOrder, InboundReceipt
 
 BILLING_BASES = {
     "INBOUND_DDT":          {"source": "INBOUND",  "unit": "DDT",               "label": "Per DDT di ingresso"},
@@ -157,3 +157,99 @@ async def apply_charges(
         if charge_id not in kept:
             await db.delete(charge)
     return total
+
+
+def charge_dict(c: BillingCharge) -> dict:
+    return {
+        "id": c.id, "service_id": c.service_id, "service_code": c.service_code, "service_name": c.service_name,
+        "phase_name": c.phase_name, "unit_label": c.unit_label, "quantity": float(c.quantity),
+        "unit_price": float(c.unit_price), "amount": float(c.amount), "notes": c.notes,
+        "priceless": False, "charge_date": c.charge_date, "created_by": c.created_by,
+    }
+
+
+# ==========================================
+# RIEPILOGO OPERAZIONI (FASE 7 E PORTALE MANDANTE)
+# ==========================================
+async def build_operations_summary(db: AsyncSession, merchant, date_from: str, date_to: str) -> dict:
+    """Tutte le operazioni del mandante nel periodo (carichi ed evasioni), documento per
+    documento, con i costi imputati; più i totali per fase e il totale generale."""
+    if date_from > date_to:
+        raise HTTPException(status_code=400, detail="La data iniziale è successiva a quella finale.")
+    start, end = f"{date_from} 00:00:00", f"{date_to} 23:59:59"
+
+    receipts = (await db.execute(
+        select(InboundReceipt).where(
+            InboundReceipt.merchant_id == merchant.id,
+            InboundReceipt.received_at >= start, InboundReceipt.received_at <= end,
+        )
+    )).scalars().all()
+    orders = (await db.execute(
+        select(DispatchOrder).where(
+            DispatchOrder.merchant_id == merchant.id,
+            DispatchOrder.processed_at >= start, DispatchOrder.processed_at <= end,
+        )
+    )).scalars().all()
+    charges = (await db.execute(
+        select(BillingCharge).where(
+            BillingCharge.merchant_id == merchant.id,
+            BillingCharge.charge_date >= start, BillingCharge.charge_date <= end,
+        ).order_by(BillingCharge.id)
+    )).scalars().all()
+
+    by_order, by_receipt, loose = {}, {}, []
+    for c in charges:
+        if c.dispatch_order_id:
+            by_order.setdefault(c.dispatch_order_id, []).append(charge_dict(c))
+        elif c.inbound_receipt_id:
+            by_receipt.setdefault(c.inbound_receipt_id, []).append(charge_dict(c))
+        else:
+            loose.append(charge_dict(c))
+
+    operations = []
+    for r in receipts:
+        rows = by_receipt.get(r.id, [])
+        operations.append({
+            "kind": "receipt", "type_label": "Carico", "id": r.id, "reference": r.doc_reference,
+            "date": r.received_at, "units": r.total_units, "charges": rows,
+            "total": round(sum(x["amount"] for x in rows), 2),
+        })
+    for o in orders:
+        rows = by_order.get(o.id, [])
+        operations.append({
+            "kind": "order", "type_label": "Spedizione", "id": o.id, "reference": o.order_number,
+            "date": o.processed_at, "units": o.total_units, "charges": rows,
+            "total": round(sum(x["amount"] for x in rows), 2),
+        })
+    # Addebiti non legati a un documento (stoccaggio mensile, extra manuali): una voce ciascuno.
+    for c in loose:
+        operations.append({
+            "kind": "charge", "type_label": "Addebito", "id": c["id"], "reference": c["service_name"],
+            "date": c["charge_date"], "units": None, "charges": [c], "total": c["amount"],
+        })
+    operations.sort(key=lambda x: x["date"])
+
+    phases = {}
+    for c in charges:
+        ph = phases.setdefault(c.phase_id, {"phase_name": c.phase_name, "amount": 0.0, "services": {}})
+        ph["amount"] += float(c.amount)
+        sv = ph["services"].setdefault(c.service_id, {"service_name": c.service_name, "unit_label": c.unit_label, "quantity": 0.0, "amount": 0.0})
+        sv["quantity"] += float(c.quantity)
+        sv["amount"] += float(c.amount)
+    order_of_phase = dict((await db.execute(select(BillingPhase.id, BillingPhase.sort_order))).all())
+    phase_totals = [
+        {"phase_name": p["phase_name"], "amount": round(p["amount"], 2),
+         "services": [{**s, "quantity": round(s["quantity"], 3), "amount": round(s["amount"], 2)} for s in p["services"].values()]}
+        for pid, p in sorted(phases.items(), key=lambda kv: order_of_phase.get(kv[0], 0))
+    ]
+
+    return {
+        "merchant": {"id": merchant.id, "company_name": merchant.company_name, "account_code": merchant.account_code},
+        "date_from": date_from, "date_to": date_to,
+        "operations": operations,
+        "phase_totals": phase_totals,
+        "counts": {"receipts": len(receipts), "orders": len(orders),
+                   "units_in": sum(r.total_units for r in receipts), "units_out": sum(o.total_units for o in orders)},
+        "grand_total": round(sum(float(c.amount) for c in charges), 2),
+        "operations_without_charges": sum(1 for op in operations if op["kind"] != "charge" and not op["charges"]),
+    }
