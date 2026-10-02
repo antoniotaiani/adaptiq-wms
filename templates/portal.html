@@ -6,6 +6,7 @@
     <title>AdaptiQ WMS - Portale Mandanti</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/static/sidebar.css">
     <style>
         html { font-size: 14px; }
         :root {
@@ -118,9 +119,10 @@
 </head>
 <body>
 
-<header class="header-brand py-2 px-4 mb-4 no-print">
+<header class="header-brand py-2 px-3 px-md-4 no-print" id="portalHeader">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-3">
+            <button class="sb-toggle d-none" id="portalSbToggle" type="button" onclick="toggleSidebar()" title="Menu" aria-label="Menu"><i class="bi bi-list"></i></button>
             <img src="/static/logo.png" alt="AdaptiQ Logo" class="brand-logo-nav" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
             <div class="border-start ps-3 d-none d-sm-block">
                 <span class="brand-text-fallback">⚡ AdaptiQ WMS</span>
@@ -149,7 +151,7 @@
     </div>
 </header>
 
-<section id="loginSection" class="container py-4 no-print">
+<section id="loginSection" class="container py-4 mt-3 no-print">
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
             <div class="card card-custom p-4 p-md-5">
@@ -191,7 +193,27 @@
     </div>
 </section>
 
-<section id="dashboardSection" class="container-fluid px-3 px-md-4 no-print d-none">
+<section id="dashboardSection" class="no-print d-none">
+<div class="app-shell">
+<aside class="sidebar" aria-label="Menu">
+    <nav class="sb-nav nav" role="tablist">
+        <div class="sb-group-title" data-i18n="sb_group">Il mio magazzino</div>
+        <button class="sb-item nav-link active" data-bs-toggle="tab" data-bs-target="#tab-scorte" onclick="loadStock(); closeSidebarOnMobile()" data-i18n-title="tab_stock">
+            <i class="bi bi-boxes"></i><span class="sb-label" data-i18n="tab_stock">Situazione Merci &amp; Scorte</span>
+        </button>
+        <button class="sb-item nav-link" data-bs-toggle="tab" data-bs-target="#tab-ordini" onclick="loadOrders(); closeSidebarOnMobile()" data-i18n-title="tab_dispatches">
+            <i class="bi bi-truck"></i><span class="sb-label" data-i18n="tab_dispatches">Spedizioni Evase</span>
+        </button>
+        <button class="sb-item nav-link" data-bs-toggle="tab" data-bs-target="#tab-costi" onclick="openCostsTab(); closeSidebarOnMobile()" data-i18n-title="tab_costs">
+            <i class="bi bi-currency-euro"></i><span class="sb-label" data-i18n="tab_costs">Costi Servizi</span>
+        </button>
+    </nav>
+    <div class="sb-footer">
+        <a href="#" class="sb-item" onclick="event.preventDefault(); toggleSidebar();" data-i18n-title="sb_collapse"><i class="bi bi-chevron-double-left sb-collapse-icon"></i><span class="sb-label" data-i18n="sb_collapse">Riduci menu</span></a>
+    </div>
+</aside>
+<div class="sb-backdrop" onclick="closeSidebarOnMobile()"></div>
+<div class="app-content container-fluid px-3 px-md-4 pt-4">
     <div class="text-center mb-3">
         <img src="/static/logo.png" alt="AdaptiQ Logo" class="portal-logo-center" style="max-height: 55px;" onerror="this.onerror=null; this.src='/static/logo_logistics.jpeg';">
     </div>
@@ -232,23 +254,7 @@
         </div>
     </div>
 
-    <ul class="nav nav-tabs mb-3" role="tablist">
-        <li class="nav-item">
-            <button class="nav-link active fw-bold px-4 py-2" data-bs-toggle="tab" data-bs-target="#tab-scorte" onclick="loadStock()" data-i18n="tab_stock">
-                <i class="bi bi-boxes me-1"></i> 1. Situazione Merci & Scorte
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link fw-bold px-4 py-2" data-bs-toggle="tab" data-bs-target="#tab-ordini" onclick="loadOrders()" data-i18n="tab_dispatches">
-                <i class="bi bi-truck me-1"></i> 2. Spedizioni Evase
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link fw-bold px-4 py-2" data-bs-toggle="tab" data-bs-target="#tab-costi" onclick="openCostsTab()" data-i18n="tab_costs">
-                <i class="bi bi-currency-euro me-1"></i> 3. Costi Servizi
-            </button>
-        </li>
-    </ul>
+
 
     <div class="tab-content">
         <div class="tab-pane fade show active" id="tab-scorte">
@@ -348,6 +354,8 @@
             <div id="costsResult"></div>
         </div>
     </div>
+</div>
+</div>
 </section>
 
 <div class="modal fade no-print" id="ddtDetailModal" tabindex="-1" aria-hidden="true">
@@ -413,6 +421,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/sidebar.js"></script>
 <script>
     const i18nPortal = {
         it: {
@@ -431,8 +440,6 @@
             stat_total_pcs: "Pezzi Totali a Magazzino",
             stat_status: "Stato Aggiornamento",
             stat_realtime: "In tempo reale",
-            tab_stock: '<i class="bi bi-boxes me-1"></i> 1. Situazione Merci & Scorte',
-            tab_dispatches: '<i class="bi bi-truck me-1"></i> 2. Spedizioni Evase',
             search_stock_placeholder: "Cerca per SKU, descrizione o ubicazione...",
             search_barcode_placeholder: "Filtra per codice a barre...",
             btn_export_csv: '<i class="bi bi-filetype-csv me-1"></i> Esporta CSV',
@@ -468,7 +475,11 @@
             prn_sig_client: "Firma Per Presa Visione Mandante",
             err_enter_creds: "Inserisci sia il codice identificativo che il PIN.",
             err_invalid_creds: "Credenziali non valide o non autorizzate.",
-            tab_costs: '<i class="bi bi-currency-euro me-1"></i> 3. Costi Servizi',
+            tab_stock: "Situazione Merci & Scorte",
+            tab_dispatches: "Spedizioni Evase",
+            tab_costs: "Costi Servizi",
+            sb_group: "Il mio magazzino",
+            sb_collapse: "Riduci menu",
             btn_show: "Visualizza",
             btn_this_month: "Mese corrente",
             btn_last_month: "Mese scorso",
@@ -512,8 +523,6 @@
             stat_total_pcs: "Total Units in Facility",
             stat_status: "Sync Status",
             stat_realtime: "Real-time live",
-            tab_stock: '<i class="bi bi-boxes me-1"></i> 1. On-Hand Inventory',
-            tab_dispatches: '<i class="bi bi-truck me-1"></i> 2. Dispatched Orders',
             search_stock_placeholder: "Search by SKU, description or bin...",
             search_barcode_placeholder: "Filter by barcode...",
             btn_export_csv: '<i class="bi bi-filetype-csv me-1"></i> Export CSV',
@@ -549,7 +558,11 @@
             prn_sig_client: "Merchant Representative Signature",
             err_enter_creds: "Please enter both account code and PIN.",
             err_invalid_creds: "Invalid credentials or unauthorized account.",
-            tab_costs: '<i class="bi bi-currency-euro me-1"></i> 3. Service Costs',
+            tab_stock: "On-Hand Inventory",
+            tab_dispatches: "Dispatched Orders",
+            tab_costs: "Service Costs",
+            sb_group: "My warehouse",
+            sb_collapse: "Collapse menu",
             btn_show: "Show",
             btn_this_month: "This month",
             btn_last_month: "Last month",
@@ -595,6 +608,11 @@
             if (i18nPortal[lang][key]) elem.innerHTML = i18nPortal[lang][key];
         });
 
+        document.querySelectorAll("[data-i18n-title]").forEach(elem => {
+            const key = elem.getAttribute("data-i18n-title");
+            if (i18nPortal[lang][key]) elem.title = i18nPortal[lang][key];
+        });
+
         document.querySelectorAll("[data-i18n-placeholder]").forEach(elem => {
             const key = elem.getAttribute("data-i18n-placeholder");
             if (i18nPortal[lang][key]) elem.placeholder = i18nPortal[lang][key];
@@ -638,6 +656,7 @@
             document.getElementById("loginSection").classList.add("d-none");
             document.getElementById("dashboardSection").classList.remove("d-none");
             document.getElementById("headerUserBox").classList.remove("d-none");
+            document.getElementById("portalSbToggle").classList.remove("d-none");
             await loadStock();
         } catch(e){
             console.error("Login Error:", e);

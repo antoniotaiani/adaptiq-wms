@@ -56,6 +56,7 @@ adaptiq-wms/
 │
 ├── static/                          # Risorse statiche servite dall'applicazione (loghi personalizzabili da UI)
 │   ├── logo.png                     # Logo primario AdaptiQ
+│   ├── sidebar.css / sidebar.js     # Barra laterale di navigazione (operatore e portale): riducibile a icone, a scomparsa su telefono
 │   └── logo_logistics.png           # Logo secondario/fallback logistica
 │
 ├── templates/                       # Pagine HTML renderizzate via Jinja2
