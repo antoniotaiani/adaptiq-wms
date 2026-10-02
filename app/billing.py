@@ -135,6 +135,8 @@ async def apply_charges(
                        f"non è attivo o non ha un prezzo nel listino del mandante."
             )
         svc, phase = entry["service"], entry["phase"]
+        if BILLING_BASES.get(svc.basis, {}).get("source") == "MONTHLY":
+            raise HTTPException(status_code=400, detail=f"'{svc.name}' è un servizio di fine mese: si addebita da Fase 7 > Stoccaggio Mensile.")
         if entry["priceless"]:
             if row.amount is None:
                 raise HTTPException(status_code=400, detail=f"Indica l'importo per '{svc.name}' (servizio a consuntivo).")
@@ -164,7 +166,7 @@ def charge_dict(c: BillingCharge) -> dict:
         "id": c.id, "service_id": c.service_id, "service_code": c.service_code, "service_name": c.service_name,
         "phase_name": c.phase_name, "unit_label": c.unit_label, "quantity": float(c.quantity),
         "unit_price": float(c.unit_price), "amount": float(c.amount), "notes": c.notes,
-        "priceless": False, "charge_date": c.charge_date, "created_by": c.created_by,
+        "priceless": False, "charge_date": c.charge_date, "created_by": c.created_by, "period": c.period,
     }
 
 
@@ -224,7 +226,8 @@ async def build_operations_summary(db: AsyncSession, merchant, date_from: str, d
     # Addebiti non legati a un documento (stoccaggio mensile, extra manuali): una voce ciascuno.
     for c in loose:
         operations.append({
-            "kind": "charge", "type_label": "Addebito", "id": c["id"], "reference": c["service_name"],
+            "kind": "charge", "type_label": "Addebito", "id": c["id"],
+            "reference": f"{c['service_name']} — {c['period']}" if c["period"] else c["service_name"],
             "date": c["charge_date"], "units": None, "charges": [c], "total": c["amount"],
         })
     operations.sort(key=lambda x: x["date"])

@@ -636,6 +636,11 @@
                     </button>
                 </li>
                 <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2 small" data-bs-toggle="tab" data-bs-target="#subtab-monthly" onclick="openMonthlyTab()">
+                        <i class="bi bi-calendar-month me-1"></i> Stoccaggio Mensile
+                    </button>
+                </li>
+                <li class="nav-item">
                     <button class="nav-link fw-bold px-3 py-2 small" data-bs-toggle="tab" data-bs-target="#subtab-pricelists" onclick="loadPriceLists()">
                         <i class="bi bi-tags me-1"></i> Listini Prezzi
                     </button>
@@ -672,6 +677,29 @@
                         </div>
                     </div>
                     <div id="summaryResult"><p class="text-muted text-center my-5">Seleziona mandante e periodo, poi premi <b>Genera</b>.</p></div>
+                </div>
+
+                <!-- SUB-TAB: STOCCAGGIO MENSILE -->
+                <div class="tab-pane fade" id="subtab-monthly">
+                    <div class="card card-custom p-3 mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label m-0 small fw-bold">Mese *</label>
+                                <input type="month" id="monthlyPeriod" class="form-control form-control-sm fw-bold">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label m-0 small fw-bold">Mandante</label>
+                                <select id="monthlyMerchant" class="form-select form-select-sm fw-bold" onchange="renderMonthly()"><option value="">Tutti i mandanti</option></select>
+                            </div>
+                            <div class="col-md-6 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-sm btn-primary fw-bold" onclick="loadMonthly()"><i class="bi bi-search me-1"></i> Carica</button>
+                                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="setMonthlyPeriod(0)">Mese corrente</button>
+                                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="setMonthlyPeriod(-1)">Mese scorso</button>
+                            </div>
+                        </div>
+                        <p class="small text-muted m-0 mt-2">Scegli il mese e il mandante (o tutti), indica i posti pallet / m² occupati nel mese e salva. Gli addebiti hanno data l'ultimo giorno del mese e compaiono nel riepilogo e nel portale del mandante; un campo vuoto o 0 = nessun addebito.</p>
+                    </div>
+                    <div id="monthlyResult"><p class="text-muted text-center my-5">Scegli il mese e premi <b>Carica</b>.</p></div>
                 </div>
 
                 <!-- SUB-TAB: LISTINI -->
@@ -1575,7 +1603,8 @@
                 return `<tr><td><span class="fw-semibold">${esc(i.name)}</span> ${r.auto ? `<span class="badge bg-info-subtle text-info-emphasis border" data-auto="${idx}" title="Quantità calcolata dal documento: modificala o rimuovi la riga se non si applica">suggerito</span>` : ""}<br><small class="text-muted">${esc(i.phase)}</small></td><td>${qty}</td><td class="small text-nowrap">${price}</td><td class="text-end">${amount}</td><td><input type="text" class="form-control form-control-sm" placeholder="Nota" value="${esc(r.notes || "")}" onchange="${this.ref}.update(${idx}, 'notes', this.value)"></td><td class="text-center"><button class="btn btn-sm btn-outline-danger" onclick="${this.ref}.remove(${idx})"><i class="bi bi-x-lg"></i></button></td></tr>`;
             }).join("");
             const used = new Set(this.rows.map(r => r.service_id));
-            const available = this.tariff ? this.tariff.services.filter(x => !used.has(x.id)) : [];
+            // I servizi di fine mese (stoccaggio) si addebitano da Fase 7 > Stoccaggio Mensile, non sui documenti.
+            const available = this.tariff ? this.tariff.services.filter(x => !used.has(x.id) && x.source !== "MONTHLY") : [];
             const options = available.map(x => `<option value="${x.id}">${esc(x.phase_name)} — ${esc(x.name)} (${x.priceless ? "a consuntivo" : fmtPrice(x.unit_price) + " / " + esc(x.unit_label)})</option>`).join("");
             el.innerHTML = `<div class="card card-custom p-3 border-start border-4 border-warning">${head}
                 <div class="table-responsive"><table class="table table-sm align-middle mb-2">
@@ -1596,7 +1625,9 @@
     ["input", "change"].forEach(ev => document.getElementById("priceListForm").addEventListener(ev, e => { if(!e.target.classList.contains("pl-add")) setPriceListDirty(true); }));
     document.querySelectorAll('[data-bs-target="#tab-billing"], [data-bs-target="#subtab-pricelists"]').forEach(btn =>
         btn.addEventListener("hide.bs.tab", e => { if(!confirmDiscardPriceList()) e.preventDefault(); }));
-    window.addEventListener("beforeunload", e => { if(priceListDirty) { e.preventDefault(); e.returnValue = ""; } });
+    window.addEventListener("beforeunload", e => { if(priceListDirty || monthlyDirty) { e.preventDefault(); e.returnValue = ""; } });
+    document.querySelectorAll('[data-bs-target="#tab-billing"], [data-bs-target="#subtab-monthly"]').forEach(btn =>
+        btn.addEventListener("hide.bs.tab", e => { if(document.getElementById("subtab-monthly").classList.contains("active") && !confirmDiscardMonthly()) e.preventDefault(); }));
 
     // Dopo modifiche a listini, servizi o mandanti le schede costi aperte rileggono il tariffario.
     function refreshCostTariffs() { Object.values(costSheets).forEach(s => s.refreshTariff()); }
@@ -1641,6 +1672,124 @@
     // --- RIEPILOGO OPERAZIONI (FASE 7) ---
     let lastSummary = null;
     const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    // --- STOCCAGGIO MENSILE (FASE 7) ---
+    let monthlyData = null, monthlyDirty = false;
+    const MONTH_NAMES = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+    const monthLabel = p => `${MONTH_NAMES[parseInt(p.slice(5)) - 1]} ${p.slice(0, 4)}`;
+
+    function setMonthlyDirty(v) { monthlyDirty = v; const b = document.getElementById("monthlyDirtyBadge"); if(b) b.classList.toggle("d-none", !v); }
+    function confirmDiscardMonthly() {
+        if(!monthlyDirty) return true;
+        if(!confirm(`Lo stoccaggio di ${monthLabel(monthlyData.period)} ha modifiche non salvate.\n\nContinuare senza salvare?`)) return false;
+        setMonthlyDirty(false); return true;
+    }
+
+    function setMonthlyPeriod(offset) {
+        if(!confirmDiscardMonthly()) return;
+        const now = new Date(), d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+        document.getElementById("monthlyPeriod").value = isoDate(d).slice(0, 7);
+        loadMonthly(true);
+    }
+
+    function openMonthlyTab() {
+        // Nei primi giorni del mese si dichiara di solito il mese appena chiuso.
+        if(!document.getElementById("monthlyPeriod").value) setMonthlyPeriod(new Date().getDate() <= 10 ? -1 : 0);
+    }
+
+    async function loadMonthly(confirmed) {
+        if(!confirmed && !confirmDiscardMonthly()) return;
+        const period = document.getElementById("monthlyPeriod").value, box = document.getElementById("monthlyResult");
+        if(!period) { alert("Scegli il mese."); return; }
+        try {
+            const res = await fetch(`/api/billing/monthly?period=${period}`);
+            const data = await res.json();
+            if(!res.ok) { box.innerHTML = `<div class="alert alert-danger fw-semibold">${esc(formatApiError(data))}</div>`; monthlyData = null; return; }
+            monthlyData = data; setMonthlyDirty(false);
+            const sel = document.getElementById("monthlyMerchant"), keep = sel.value;
+            sel.innerHTML = `<option value="">Tutti i mandanti</option>` + data.merchants.map(m => `<option value="${m.merchant_id}">${esc(m.company_name)}</option>`).join("");
+            sel.value = data.merchants.some(m => String(m.merchant_id) === keep) ? keep : "";
+            renderMonthly();
+        } catch(e) { console.error(e); alert("Errore di rete."); }
+    }
+
+    function monthlyCellAmount(cell, raw) {
+        const q = parseDec(raw);
+        return isFinite(q) && q > 0 ? Math.round(q * cell.unit_price * 100) / 100 : 0;
+    }
+
+    function renderMonthly() {
+        const d = monthlyData, box = document.getElementById("monthlyResult");
+        const future = d.period > isoDate(new Date()).slice(0, 7);
+        if(!d.services.length) { box.innerHTML = `<div class="card card-custom p-4 text-center text-muted">Nessun servizio di stoccaggio mensile censito: crealo in "Servizi &amp; Fasi" con base di calcolo "Per posto pallet al mese" o "Per m² dedicato al mese".</div>`; return; }
+        const head = d.services.map(s => `<th class="text-center" style="min-width: 170px;">${esc(s.name)}${s.active ? "" : ' <span class="badge bg-secondary">Disattivato</span>'}<br><small class="fw-normal">${esc(s.unit_label)}</small></th>`).join("");
+        const only = document.getElementById("monthlyMerchant").value;
+        const shown = d.merchants.filter(m => !only || String(m.merchant_id) === only);
+        const rows = shown.map(m => {
+            const name = `<td><span class="fw-semibold">${esc(m.company_name)}</span><br><small class="font-monospace text-muted">${esc(m.account_code)}</small></td>`;
+            if(!Object.keys(m.cells).length) {
+                const why = m.price_list_name ? `il listino "${esc(m.price_list_name)}" non ha voci di stoccaggio: aggiungile in <b>Listini Prezzi</b>` : `nessun listino associato: assegnalo da <b>FASE 5 &gt; Dettagli mandante</b>`;
+                return `<tr class="table-light">${name}<td colspan="${d.services.length + 1}" class="small text-muted"><i class="bi bi-info-circle me-1"></i> Stoccaggio non addebitabile: ${why}.</td></tr>`;
+            }
+            const cells = d.services.map(s => {
+                const c = m.cells[String(s.id)];
+                if(!c) return `<td class="text-center text-muted small">non nel listino</td>`;
+                // c.input = valore scritto e non ancora salvato (resta anche cambiando il mandante visualizzato)
+                const val = c.input !== undefined ? c.input : (c.quantity === null ? "" : String(c.quantity).replace(".", ","));
+                return `<td><input type="text" inputmode="decimal" class="form-control form-control-sm text-end mo-qty" data-m="${m.merchant_id}" data-s="${s.id}" value="${val}" placeholder="0" ${future ? "disabled" : ""} oninput="onMonthlyInput(this)"><div class="d-flex justify-content-between small mt-1"><span class="text-muted">${fmtPrice(c.unit_price)}</span><span class="fw-bold" data-amt="${m.merchant_id}-${s.id}">${fmtEuro(monthlyCellAmount(c, val))}</span></div></td>`;
+            }).join("");
+            return `<tr>${name}${cells}<td class="text-end fw-bold" data-rowtot="${m.merchant_id}"></td></tr>`;
+        }).join("");
+        box.innerHTML = `<div class="card card-custom p-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"><h5 class="fw-bold m-0">Stoccaggio di ${monthLabel(d.period)}</h5>
+                ${future ? '<span class="badge bg-warning text-dark">Mese futuro: non dichiarabile</span>' : ""}</div>
+            ${shown.length ? `<div class="table-responsive"><table class="table table-sm align-middle">
+                <thead class="table-dark"><tr><th>Mandante</th>${head}<th class="text-end" style="width: 130px;">Totale</th></tr></thead>
+                <tbody>${rows}</tbody>
+                <tfoot><tr><td colspan="${d.services.length + 1}" class="text-end fw-bold">${only ? "Totale del mandante" : "Totale del mese"}</td><td class="text-end fw-bold fs-6" id="monthlyTotal"></td></tr></tfoot>
+            </table></div>` : `<p class="text-muted text-center my-4">Nessun mandante censito.</p>`}
+            ${shown.some(m => Object.keys(m.cells).length) && !future ? `<div class="d-flex justify-content-end align-items-center gap-2"><span id="monthlyDirtyBadge" class="badge bg-warning text-dark d-none"><i class="bi bi-exclamation-triangle me-1"></i>Modifiche non salvate</span><button class="btn btn-primary fw-bold" onclick="saveMonthly()"><i class="bi bi-check-circle me-1"></i> Salva Stoccaggio</button></div>` : ""}
+        </div>`;
+        updateMonthlyTotals();
+    }
+
+    function onMonthlyInput(inp) {
+        const m = monthlyData.merchants.find(x => x.merchant_id === parseInt(inp.dataset.m)), c = m.cells[inp.dataset.s];
+        c.input = inp.value;
+        document.querySelector(`[data-amt="${inp.dataset.m}-${inp.dataset.s}"]`).textContent = fmtEuro(monthlyCellAmount(c, inp.value));
+        setMonthlyDirty(true); updateMonthlyTotals();
+    }
+
+    function updateMonthlyTotals() {
+        let total = 0;
+        monthlyData.merchants.forEach(m => {
+            if(!document.querySelector(`[data-rowtot="${m.merchant_id}"]`)) return;
+            let row = 0;
+            document.querySelectorAll(`.mo-qty[data-m="${m.merchant_id}"]`).forEach(inp => row += monthlyCellAmount(m.cells[inp.dataset.s], inp.value));
+            const cell = document.querySelector(`[data-rowtot="${m.merchant_id}"]`); if(cell) cell.textContent = fmtEuro(row);
+            total += row;
+        });
+        const t = document.getElementById("monthlyTotal"); if(t) t.textContent = fmtEuro(total);
+    }
+
+    async function saveMonthly() {
+        // Si salvano tutte le celle del mese, anche quelle dei mandanti non visualizzati.
+        const entries = [];
+        for(const m of monthlyData.merchants) for(const [sid, c] of Object.entries(m.cells)) {
+            const raw = (c.input !== undefined ? c.input : (c.quantity === null ? "" : String(c.quantity))).trim(), q = parseDec(raw);
+            if(raw !== "" && (!isFinite(q) || q < 0)) {
+                alert(`Quantità non valida per ${m.company_name}.`);
+                const inp = document.querySelector(`.mo-qty[data-m="${m.merchant_id}"][data-s="${sid}"]`); if(inp) inp.focus();
+                return;
+            }
+            entries.push({merchant_id: m.merchant_id, service_id: parseInt(sid), quantity: raw === "" ? null : String(q)});
+        }
+        try {
+            const res = await fetch("/api/billing/monthly", { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({period: monthlyData.period, entries}) });
+            if(res.ok) { setMonthlyDirty(false); alert(`Stoccaggio di ${monthLabel(monthlyData.period)} salvato.`); loadMonthly(true); }
+            else { alert(formatApiError(await res.json())); }
+        } catch(e) { alert("Errore di rete."); }
+    }
 
     function setSummaryMonth(offset) {
         const now = new Date(), first = new Date(now.getFullYear(), now.getMonth() + offset, 1), last = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);

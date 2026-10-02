@@ -1,13 +1,17 @@
 # app/routers/billing.py
+import calendar
+from decimal import Decimal, ROUND_HALF_UP
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete, update
 
 from app.database import get_db
 from app.models import BillingPhase, BillingService, PriceList, PriceListLine, Merchant, BillingCharge, DispatchOrder, InboundReceipt
-from app.schemas import BillingPhaseRequest, BillingServiceRequest, PriceListCreateRequest, PriceListUpdateRequest, DocumentChargesRequest
+from app.schemas import BillingPhaseRequest, BillingServiceRequest, PriceListCreateRequest, PriceListUpdateRequest, DocumentChargesRequest, MonthlyChargesRequest
 from app.auth import get_current_operator_payload
 from app.audit import log_action, actor_from_payload
+from app.timeutils import now_str
 from app.billing import BILLING_BASES, BILLING_SOURCES, PRICELESS_BASES, merchant_tariff, apply_charges, charge_dict, build_operations_summary
 
 router = APIRouter(prefix="/api/billing", tags=["Billing"], dependencies=[Depends(get_current_operator_payload)])
@@ -369,6 +373,110 @@ async def update_document_charges(
                      f"Costi {label} '{reference}' ({merchant.company_name}) aggiornati: {len(payload.charges)} righe, totale € {total:.2f}.")
     await db.commit()
     return {"status": "ok", "total": float(total)}
+
+
+# ==========================================
+# STOCCAGGIO MENSILE (DICHIARAZIONE DI FINE MESE)
+# ==========================================
+MONTHLY_BASES = {code for code, b in BILLING_BASES.items() if b["source"] == "MONTHLY"}
+PERIOD_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
+
+
+def _period_charge_date(period: str) -> str:
+    """Data degli addebiti del mese: l'ultimo giorno, a fine giornata. Rifiuta i mesi futuri."""
+    year, month = int(period[:4]), int(period[5:])
+    if period > now_str()[:7]:
+        raise HTTPException(status_code=400, detail="Non si può dichiarare lo stoccaggio di un mese futuro.")
+    return f"{period}-{calendar.monthrange(year, month)[1]:02d} 23:59:59"
+
+
+@router.get("/monthly")
+async def get_monthly_storage(period: str = Query(..., pattern=PERIOD_PATTERN), db: AsyncSession = Depends(get_db)):
+    """Griglia del mese: per ogni mandante le quantità dichiarate e i servizi mensili del suo listino."""
+    charges = (await db.execute(
+        select(BillingCharge).where(BillingCharge.period == period, BillingCharge.source_type == "MONTHLY")
+    )).scalars().all()
+    services = (await db.execute(
+        select(BillingService, BillingPhase).join(BillingPhase, BillingService.phase_id == BillingPhase.id)
+        .where(BillingService.basis.in_(MONTHLY_BASES))
+        .order_by(BillingPhase.sort_order, BillingService.id)
+    )).all()
+    charged_ids = {c.service_id for c in charges}
+    columns = [s for s, _ in services if s.active or s.id in charged_ids]
+
+    list_names = dict((await db.execute(select(PriceList.id, PriceList.name))).all())
+    rows = []
+    for m in (await db.execute(select(Merchant).order_by(Merchant.company_name))).scalars().all():
+        tariff = await merchant_tariff(db, m)
+        cells = {}
+        for svc in columns:
+            entry = tariff.get(svc.id)
+            charge = next((c for c in charges if c.merchant_id == m.id and c.service_id == svc.id), None)
+            if charge:
+                # Addebito già registrato: vale il suo prezzo congelato.
+                cells[str(svc.id)] = {"quantity": float(charge.quantity), "unit_price": float(charge.unit_price), "amount": float(charge.amount), "saved": True}
+            elif entry:
+                cells[str(svc.id)] = {"quantity": None, "unit_price": float(entry["unit_price"]), "amount": 0.0, "saved": False}
+        # Tutti i mandanti: senza celle = nessuna voce di stoccaggio nel listino (o nessun listino).
+        rows.append({"merchant_id": m.id, "company_name": m.company_name, "account_code": m.account_code,
+                     "price_list_name": list_names.get(m.price_list_id), "cells": cells})
+    return {
+        "period": period,
+        "services": [{"id": s.id, "code": s.code, "name": s.name, "unit_label": s.unit_label, "active": s.active} for s in columns],
+        "merchants": rows,
+        "total": round(sum(float(c.amount) for c in charges), 2),
+    }
+
+
+@router.put("/monthly")
+async def save_monthly_storage(payload: MonthlyChargesRequest, op: dict = Depends(get_current_operator_payload), db: AsyncSession = Depends(get_db)):
+    """Allinea gli addebiti del mese alle quantità ricevute: crea (prezzo del listino attuale),
+    aggiorna (prezzo originale) o elimina (quantità vuota o zero)."""
+    charge_date = _period_charge_date(payload.period)
+    actor = actor_from_payload(op)
+    existing = {(c.merchant_id, c.service_id): c for c in (await db.execute(
+        select(BillingCharge).where(BillingCharge.period == payload.period, BillingCharge.source_type == "MONTHLY")
+    )).scalars().all()}
+    merchants, tariffs, changes = {}, {}, {}
+
+    for e in payload.entries:
+        qty = e.quantity or Decimal("0")
+        charge = existing.get((e.merchant_id, e.service_id))
+        if charge:
+            if qty == 0:
+                await db.delete(charge)
+                changes.setdefault(e.merchant_id, []).append(f"{charge.service_name} eliminato")
+            elif qty != charge.quantity:
+                charge.quantity = qty
+                charge.amount = (qty * charge.unit_price).quantize(Decimal("0.01"), ROUND_HALF_UP)
+                changes.setdefault(e.merchant_id, []).append(f"{charge.service_name} {qty} {charge.unit_label}")
+            continue
+        if qty == 0:
+            continue
+        if e.merchant_id not in merchants:
+            merchants[e.merchant_id] = await db.get(Merchant, e.merchant_id)
+            if not merchants[e.merchant_id]:
+                raise HTTPException(status_code=404, detail=f"Mandante #{e.merchant_id} non trovato.")
+            tariffs[e.merchant_id] = await merchant_tariff(db, merchants[e.merchant_id])
+        merchant, entry = merchants[e.merchant_id], tariffs[e.merchant_id].get(e.service_id)
+        if not entry or entry["service"].basis not in MONTHLY_BASES:
+            raise HTTPException(status_code=400, detail=f"Il servizio #{e.service_id} non è uno stoccaggio mensile del listino di '{merchant.company_name}'.")
+        svc, phase = entry["service"], entry["phase"]
+        db.add(BillingCharge(
+            merchant_id=merchant.id, charge_date=charge_date, source_type="MONTHLY", period=payload.period,
+            service_id=svc.id, phase_id=phase.id, service_code=svc.code, service_name=svc.name,
+            phase_name=phase.name, unit_label=svc.unit_label, quantity=qty, unit_price=entry["unit_price"],
+            amount=(qty * entry["unit_price"]).quantize(Decimal("0.01"), ROUND_HALF_UP),
+            created_at=now_str(), created_by=actor,
+        ))
+        changes.setdefault(e.merchant_id, []).append(f"{svc.name} {qty} {svc.unit_label}")
+
+    for merchant_id, items in changes.items():
+        m = merchants.get(merchant_id) or await db.get(Merchant, merchant_id)
+        await log_action(db, actor, "STOCCAGGIO_MENSILE", f"merchant:{m.account_code}",
+                         f"Stoccaggio {payload.period} di '{m.company_name}': {'; '.join(items)}."[:500])
+    await db.commit()
+    return {"status": "ok", "changed_merchants": len(changes)}
 
 
 # ==========================================

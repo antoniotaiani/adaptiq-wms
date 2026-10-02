@@ -207,3 +207,5 @@ class BillingCharge(Base):
     notes = Column(String(255), nullable=True)
     created_at = Column(String(50), nullable=False)
     created_by = Column(String(100), nullable=False)
+    # Mese di riferimento (YYYY-MM) degli addebiti di fine mese; univoco per mandante e servizio (migr. 0006).
+    period = Column(String(7), nullable=True)

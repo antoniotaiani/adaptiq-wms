@@ -157,5 +157,15 @@ class ChargeInput(BaseModel):
 class DocumentChargesRequest(BaseModel):
     charges: List[ChargeInput] = []
 
+class MonthlyChargeInput(BaseModel):
+    """Quantità dichiarata a fine mese per un servizio mensile; vuota o 0 = nessun addebito."""
+    merchant_id: int
+    service_id: int
+    quantity: Optional[Decimal] = Field(default=None, ge=0, max_digits=12, decimal_places=3)
+
+class MonthlyChargesRequest(BaseModel):
+    period: str = Field(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    entries: List[MonthlyChargeInput] = []
+
 InboundDDTRequest.model_rebuild()
 DispatchFulfillRequest.model_rebuild()
