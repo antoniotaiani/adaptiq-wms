@@ -1,7 +1,7 @@
 # app/routers/billing.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, update
 
 from app.database import get_db
 from app.models import BillingPhase, BillingService, PriceList, PriceListLine, Merchant, BillingCharge, DispatchOrder, InboundReceipt
@@ -148,8 +148,8 @@ async def update_service(service_id: int, payload: BillingServiceRequest, op: di
     svc.phase_id, svc.basis = payload.phase_id, payload.basis
     svc.unit_label, svc.active = payload.unit_label.strip(), payload.active
     if svc.basis in PRICELESS_BASES:
-        # Un servizio a consuntivo non ha prezzo di listino: eventuali prezzi precedenti non valgono più.
-        await db.execute(delete(PriceListLine).where(PriceListLine.service_id == service_id))
+        # Un servizio a consuntivo non ha prezzo di listino: resta voce dei listini, senza prezzo.
+        await db.execute(update(PriceListLine).where(PriceListLine.service_id == service_id).values(unit_price=None))
     await log_action(db, actor_from_payload(op), "MODIFICA_SERVIZIO", f"billing_service:{code}", f"Servizio '{svc.name}' aggiornato.")
     await db.commit()
     return {"status": "ok"}
@@ -164,7 +164,7 @@ async def delete_service(service_id: int, op: dict = Depends(get_current_operato
     if used:
         raise HTTPException(
             status_code=400,
-            detail=f"Il servizio '{svc.name}' ha un prezzo in {used} listini: toglilo dai listini oppure disattivalo."
+            detail=f"Il servizio '{svc.name}' è una voce di {used} listini: toglilo dai listini oppure disattivalo."
         )
     charged = (await db.execute(select(func.count(BillingCharge.id)).where(BillingCharge.service_id == service_id))).scalar()
     if charged:
@@ -209,7 +209,8 @@ async def get_price_list(list_id: int, db: AsyncSession = Depends(get_db)):
     )).all()
     return {
         "id": pl.id, "name": pl.name, "notes": pl.notes, "active": pl.active,
-        "prices": {str(l.service_id): float(l.unit_price) for l in lines},
+        # Voci del listino: servizio -> prezzo (None per i servizi a consuntivo o senza prezzo).
+        "prices": {str(l.service_id): None if l.unit_price is None else float(l.unit_price) for l in lines},
         "merchants": [{"id": m[0], "company_name": m[1], "account_code": m[2]} for m in merchants],
     }
 
@@ -262,17 +263,19 @@ async def update_price_list(list_id: int, payload: PriceListUpdateRequest, op: d
         missing = set(service_ids) - set(found)
         if missing:
             raise HTTPException(status_code=400, detail=f"Servizi inesistenti: {sorted(missing)}.")
-        priceless = [s.name for s in services if s.basis in PRICELESS_BASES]
-        if priceless:
-            raise HTTPException(status_code=400, detail=f"Servizi a consuntivo senza prezzo di listino: {', '.join(priceless)}.")
+        no_price = [found[p.service_id].name for p in payload.prices
+                    if p.unit_price is None and found[p.service_id].basis not in PRICELESS_BASES]
+        if no_price:
+            raise HTTPException(status_code=400, detail=f"Indica il prezzo per: {', '.join(no_price)}.")
 
     pl.name, pl.notes, pl.active = name, (payload.notes or "").strip() or None, payload.active
-    # Sostituzione completa delle righe: un servizio senza prezzo semplicemente non è nel listino.
+    # Sostituzione completa delle voci: un servizio non presente non è imputabile con questo listino.
     await db.execute(delete(PriceListLine).where(PriceListLine.price_list_id == list_id))
     for p in payload.prices:
-        db.add(PriceListLine(price_list_id=list_id, service_id=p.service_id, unit_price=p.unit_price))
+        priceless = found[p.service_id].basis in PRICELESS_BASES
+        db.add(PriceListLine(price_list_id=list_id, service_id=p.service_id, unit_price=None if priceless else p.unit_price))
 
-    await log_action(db, actor_from_payload(op), "MODIFICA_LISTINO", f"price_list:{list_id}", f"Listino '{name}' aggiornato ({len(payload.prices)} prezzi).")
+    await log_action(db, actor_from_payload(op), "MODIFICA_LISTINO", f"price_list:{list_id}", f"Listino '{name}' aggiornato ({len(payload.prices)} voci).")
     await db.commit()
     return {"status": "ok"}
 

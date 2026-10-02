@@ -135,8 +135,9 @@ class PriceListCreateRequest(BaseModel):
     copy_from_id: Optional[int] = None
 
 class PriceListPrice(BaseModel):
+    """Voce del listino. `unit_price` obbligatorio, tranne per i servizi a consuntivo (ignorato)."""
     service_id: int
-    unit_price: Decimal = Field(..., ge=0, max_digits=12, decimal_places=4)
+    unit_price: Optional[Decimal] = Field(default=None, ge=0, max_digits=12, decimal_places=4)
 
 class PriceListUpdateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)

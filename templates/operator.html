@@ -708,17 +708,19 @@
                                         </div>
                                     </div>
                                     <div class="mb-3 small"><span class="fw-bold">Mandanti associati:</span> <span id="plMerchants"></span></div>
-                                    <p class="small text-muted mb-2">Lascia vuoto il prezzo dei servizi che non si applicano a questo listino. I servizi disattivati non compaiono qui.</p>
+                                    <p class="small text-muted mb-2">Voci di costo del listino: solo queste sono imputabili ai mandanti associati. Aggiungile dal menu sotto la tabella; i servizi si creano in "Servizi &amp; Fasi".</p>
                                     <div class="table-responsive">
                                         <table class="table table-sm align-middle">
-                                            <thead class="table-dark"><tr><th>Servizio</th><th>Base di calcolo</th><th style="width: 190px;">Prezzo unitario</th></tr></thead>
+                                            <thead class="table-dark"><tr><th>Servizio</th><th>Base di calcolo</th><th style="width: 190px;">Prezzo unitario</th><th style="width: 44px;"></th></tr></thead>
                                             <tbody id="plPricesBody"></tbody>
                                         </table>
                                     </div>
+                                    <div id="plAddBox"></div>
                                     <div class="d-flex flex-wrap gap-2 justify-content-between mt-3">
                                         <button class="btn btn-outline-danger fw-bold" onclick="deletePriceList()"><i class="bi bi-trash me-1"></i> Elimina</button>
                                         <div class="d-flex gap-2">
                                             <button class="btn btn-outline-secondary fw-bold" onclick="duplicatePriceList()"><i class="bi bi-files me-1"></i> Duplica</button>
+                                            <span id="plDirtyBadge" class="badge bg-warning text-dark align-self-center d-none"><i class="bi bi-exclamation-triangle me-1"></i>Modifiche non salvate</span>
                                             <button class="btn btn-primary fw-bold" onclick="savePriceList()"><i class="bi bi-check-circle me-1"></i> Salva Listino</button>
                                         </div>
                                     </div>
@@ -1147,6 +1149,7 @@
             const res = await fetch(`/api/merchants/${id}`, { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
             if(res.ok) {
                 alert("Dati mandante aggiornati.");
+                refreshCostTariffs();
                 bootstrap.Modal.getInstance(document.getElementById("modalMerchantDetail")).hide();
                 loadMerchants(); renderMerchantsDirectory();
             } else { alert(formatApiError(await res.json(), "Errore durante l'aggiornamento.")); }
@@ -1251,7 +1254,7 @@
         if(!payload.code || !payload.name || !payload.unit_label || !payload.phase_id) { alert("Compila codice, nome, fase e unità."); return; }
         try {
             const res = await fetch(id ? `/api/billing/services/${id}` : "/api/billing/services", { method: id ? "PUT" : "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
-            if(res.ok) { bootstrap.Modal.getInstance(document.getElementById("modalBillingService")).hide(); loadBillingCatalog(); }
+            if(res.ok) { bootstrap.Modal.getInstance(document.getElementById("modalBillingService")).hide(); loadBillingCatalog(); refreshCostTariffs(); }
             else { alert(formatApiError(await res.json())); }
         } catch(e) { alert("Errore di rete."); }
     }
@@ -1299,16 +1302,35 @@
         const box = document.getElementById("priceListsList");
         if(!priceListsCache.length) { box.innerHTML = `<div class="text-muted small text-center py-3">Nessun listino.</div>`; return; }
         const current = selectId || parseInt(document.getElementById("plId").value) || null;
-        box.innerHTML = priceListsCache.map(pl => `<button type="button" class="list-group-item list-group-item-action ${pl.id === current ? "active" : ""}" onclick="openPriceList(${pl.id})"><div class="d-flex justify-content-between align-items-center"><span class="fw-bold">${esc(pl.name)}</span>${pl.active ? "" : '<span class="badge bg-secondary">Disattivo</span>'}</div><small>${pl.lines_count} prezzi · ${pl.merchants.length} mandanti</small></button>`).join("");
-        if(selectId) openPriceList(selectId);
+        box.innerHTML = priceListsCache.map(pl => `<button type="button" class="list-group-item list-group-item-action ${pl.id === current ? "active" : ""}" onclick="openPriceList(${pl.id})"><div class="d-flex justify-content-between align-items-center"><span class="fw-bold">${esc(pl.name)}</span>${pl.active ? "" : '<span class="badge bg-secondary">Disattivo</span>'}</div><small>${pl.lines_count} voci · ${pl.merchants.length} mandanti</small></button>`).join("");
+        if(selectId) openPriceList(selectId, true);
     }
 
-    async function openPriceList(id) {
+    // Modifiche al listino aperto non ancora salvate: si chiede conferma prima di perderle.
+    let priceListDirty = false;
+    function setPriceListDirty(v) { priceListDirty = v; document.getElementById("plDirtyBadge").classList.toggle("d-none", !v); }
+    function confirmDiscardPriceList(reload = true) {
+        if(!priceListDirty) return true;
+        if(!confirm(`Il listino "${document.getElementById("plName").value}" ha modifiche non salvate.\n\nUscire senza salvare?`)) return false;
+        const id = parseInt(document.getElementById("plId").value);
+        setPriceListDirty(false);
+        if(reload && id) openPriceList(id, true); // riporta il modulo ai valori salvati
+        return true;
+    }
+
+    let priceListRequest = 0;
+    async function openPriceList(id, force) {
+        if(!force) {
+            if(id === parseInt(document.getElementById("plId").value) && priceListDirty) return; // stesso listino: si resta sulle modifiche
+            if(!confirmDiscardPriceList(false)) return;
+        }
+        const request = ++priceListRequest;
         if(!billingServices.length) await loadBillingCatalog();
         try {
             const res = await fetch(`/api/billing/price-lists/${id}`);
             if(!res.ok) { alert(formatApiError(await res.json())); return; }
             const pl = await res.json();
+            if(request !== priceListRequest) return; // nel frattempo è stato aperto un altro listino
             document.getElementById("priceListPlaceholder").classList.add("d-none");
             document.getElementById("priceListForm").classList.remove("d-none");
             document.getElementById("plId").value = pl.id;
@@ -1316,39 +1338,76 @@
             document.getElementById("plNotes").value = pl.notes || "";
             document.getElementById("plActive").checked = pl.active;
             document.getElementById("plMerchants").innerHTML = pl.merchants.length ? pl.merchants.map(m => `<span class="badge bg-light text-dark border me-1">${esc(m.company_name)}</span>`).join("") : '<span class="text-muted">nessuno (si associa da FASE 5 &gt; Dettagli mandante)</span>';
-            let html = "", lastPhase = null;
-            billingServices.filter(sv => sv.active).forEach(sv => {
-                if(sv.phase_id !== lastPhase) { html += `<tr class="table-light"><td colspan="3" class="fw-bold small text-uppercase text-secondary">${esc(sv.phase_name)}</td></tr>`; lastPhase = sv.phase_id; }
-                const price = pl.prices[String(sv.id)];
-                const input = sv.priceless
-                    ? `<span class="badge bg-light text-dark border">A consuntivo</span>`
-                    : `<div class="input-group input-group-sm"><span class="input-group-text">€</span><input type="text" inputmode="decimal" class="form-control text-end pl-price" data-service="${sv.id}" data-name="${esc(sv.name)}" value="${price !== undefined ? String(price).replace(".", ",") : ""}" placeholder="—"><span class="input-group-text small">/ ${esc(sv.unit_label)}</span></div>`;
-                html += `<tr><td><span class="font-monospace small text-primary">${esc(sv.code)}</span><br><span class="fw-semibold">${esc(sv.name)}</span></td><td class="small text-muted">${esc(sv.basis_label)}</td><td>${input}</td></tr>`;
-            });
-            document.getElementById("plPricesBody").innerHTML = html || `<tr><td colspan="3" class="text-center text-muted">Nessun servizio attivo: creali in "Servizi &amp; Fasi".</td></tr>`;
+            plVoci = Object.entries(pl.prices).map(([sid, price]) => ({service_id: parseInt(sid), price: price === null ? "" : String(price).replace(".", ",")}));
+            setPriceListDirty(false);
+            renderPriceListVoci();
             document.querySelectorAll("#priceListsList .list-group-item").forEach((el, i) => el.classList.toggle("active", priceListsCache[i] && priceListsCache[i].id === pl.id));
         } catch(e) { console.error(e); alert("Errore di rete."); }
+    }
+
+    // Voci del listino aperto: [{service_id, price}] (price come digitato; vuoto per i servizi a consuntivo).
+    let plVoci = [];
+
+    function renderPriceListVoci() {
+        const included = new Set(plVoci.map(v => v.service_id));
+        let html = "", lastPhase = null;
+        // Ordine del catalogo (per fase); compaiono anche le voci di servizi poi disattivati, per non perderle salvando.
+        billingServices.filter(sv => included.has(sv.id)).forEach(sv => {
+            const voce = plVoci.find(v => v.service_id === sv.id);
+            if(sv.phase_id !== lastPhase) { html += `<tr class="table-light"><td colspan="4" class="fw-bold small text-uppercase text-secondary">${esc(sv.phase_name)}</td></tr>`; lastPhase = sv.phase_id; }
+            const input = sv.priceless
+                ? `<span class="badge bg-light text-dark border">A consuntivo</span>`
+                : `<div class="input-group input-group-sm"><span class="input-group-text">€</span><input type="text" inputmode="decimal" class="form-control text-end pl-price" data-service="${sv.id}" value="${esc(voce.price)}" placeholder="prezzo" oninput="setPriceListVocePrice(${sv.id}, this.value)"><span class="input-group-text small">/ ${esc(sv.unit_label)}</span></div>`;
+            html += `<tr><td><span class="font-monospace small text-primary">${esc(sv.code)}</span>${sv.active ? "" : ' <span class="badge bg-secondary">Disattivato</span>'}<br><span class="fw-semibold">${esc(sv.name)}</span></td><td class="small text-muted">${esc(sv.basis_label)}</td><td>${input}</td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" title="Togli dal listino" onclick="removePriceListVoce(${sv.id})"><i class="bi bi-x-lg"></i></button></td></tr>`;
+        });
+        document.getElementById("plPricesBody").innerHTML = html || `<tr><td colspan="4" class="text-center text-muted py-3">Nessuna voce: aggiungi i servizi previsti da questo listino.</td></tr>`;
+
+        const available = billingServices.filter(sv => sv.active && !included.has(sv.id));
+        const groups = {};
+        available.forEach(sv => (groups[sv.phase_name] = groups[sv.phase_name] || []).push(sv));
+        const options = Object.entries(groups).map(([phase, list]) => `<optgroup label="${esc(phase)}">${list.map(sv => `<option value="${sv.id}">${esc(sv.code)} — ${esc(sv.name)} (${esc(sv.basis_label)})</option>`).join("")}</optgroup>`).join("");
+        document.getElementById("plAddBox").innerHTML = available.length
+            ? `<div class="input-group input-group-sm" style="max-width: 640px;"><select class="form-select pl-add"><option value="">+ Aggiungi voce di costo...</option>${options}</select><button type="button" class="btn btn-outline-primary fw-bold" onclick="addPriceListVoce()">Aggiungi</button></div>`
+            : `<p class="small text-muted m-0">Tutti i servizi attivi sono già nel listino.</p>`;
+    }
+
+    function setPriceListVocePrice(serviceId, value) { const v = plVoci.find(x => x.service_id === serviceId); if(v) v.price = value; }
+
+    function addPriceListVoce() {
+        const id = parseInt(document.querySelector("#plAddBox .pl-add").value); if(!id) return;
+        plVoci.push({service_id: id, price: ""});
+        setPriceListDirty(true); renderPriceListVoci();
+        const inp = document.querySelector(`.pl-price[data-service="${id}"]`); if(inp) inp.focus();
+    }
+
+    function removePriceListVoce(serviceId) {
+        plVoci = plVoci.filter(v => v.service_id !== serviceId);
+        setPriceListDirty(true); renderPriceListVoci();
     }
 
     async function savePriceList() {
         const id = document.getElementById("plId").value;
         const prices = [];
-        for(const inp of document.querySelectorAll(".pl-price")) {
-            const raw = inp.value.trim().replace(",", ".");
-            if(raw === "") continue;
+        for(const voce of plVoci) {
+            const sv = billingServices.find(x => x.id === voce.service_id);
+            if(sv && sv.priceless) { prices.push({service_id: voce.service_id, unit_price: null}); continue; }
+            const name = sv ? sv.name : `#${voce.service_id}`, inp = document.querySelector(`.pl-price[data-service="${voce.service_id}"]`);
+            const raw = voce.price.trim().replace(",", ".");
+            if(raw === "") { alert(`Indica il prezzo per "${name}" oppure togli la voce dal listino.`); if(inp) inp.focus(); return; }
             const v = Number(raw);
-            if(!isFinite(v) || v < 0) { alert(`Prezzo non valido per "${inp.dataset.name}".`); inp.focus(); return; }
-            prices.push({service_id: parseInt(inp.dataset.service), unit_price: raw});
+            if(!isFinite(v) || v < 0) { alert(`Prezzo non valido per "${name}".`); if(inp) inp.focus(); return; }
+            prices.push({service_id: voce.service_id, unit_price: raw});
         }
         const payload = { name: document.getElementById("plName").value.trim(), notes: document.getElementById("plNotes").value.trim() || null, active: document.getElementById("plActive").checked, prices };
         if(!payload.name) { alert("Il nome del listino è obbligatorio."); return; }
         try {
             const res = await fetch(`/api/billing/price-lists/${id}`, { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
-            if(res.ok) { alert("Listino salvato."); loadPriceLists(parseInt(id)); } else { alert(formatApiError(await res.json())); }
+            if(res.ok) { setPriceListDirty(false); alert("Listino salvato."); loadPriceLists(parseInt(id)); refreshCostTariffs(); } else { alert(formatApiError(await res.json())); }
         } catch(e) { alert("Errore di rete."); }
     }
 
     function openNewPriceListModal(copyFromId) {
+        if(!confirmDiscardPriceList()) return;
         document.getElementById("newPlName").value = "";
         document.getElementById("newPlNotes").value = "";
         document.getElementById("newPlCopyFrom").innerHTML = `<option value="">Listino vuoto</option>` + priceListsCache.map(pl => `<option value="${pl.id}">Copia di: ${esc(pl.name)}</option>`).join("");
@@ -1374,6 +1433,7 @@
         try {
             const res = await fetch(`/api/billing/price-lists/${id}`, { method: "DELETE" });
             if(res.ok) {
+                setPriceListDirty(false);
                 document.getElementById("plId").value = "";
                 document.getElementById("priceListForm").classList.add("d-none");
                 document.getElementById("priceListPlaceholder").classList.remove("d-none");
@@ -1415,9 +1475,18 @@
 
         async setMerchant(id) {
             id = id || null;
-            if(id !== this.merchantId) {
-                this.merchantId = id; this.tariff = null; this.rows = []; this.dismissed.clear();
-                if(id) { try { const res = await fetch(`/api/billing/tariff/${id}`); if(res.ok) this.tariff = await res.json(); } catch(e) {} }
+            if(id !== this.merchantId) { this.merchantId = id; this.tariff = null; this.rows = []; this.dismissed.clear(); }
+            // Il tariffario si rilegge a ogni scelta del mandante: listini e servizi possono essere cambiati nel frattempo.
+            await this.refreshTariff();
+        }
+        async refreshTariff() {
+            const id = this.merchantId;
+            if(id) {
+                try {
+                    const res = await fetch(`/api/billing/tariff/${id}`);
+                    // Risposta arrivata dopo un cambio di mandante: non è più valida.
+                    if(res.ok && this.merchantId === id) this.tariff = await res.json();
+                } catch(e) {}
             }
             this.applySuggestions();
         }
@@ -1493,7 +1562,7 @@
         render() {
             const el = this.el; if(!el) return;
             let head = `<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"><h6 class="fw-bold m-0"><i class="bi bi-currency-euro me-1"></i> ${esc(this.title)}</h6>`;
-            if(this.merchantId && this.tariff) head += this.tariff.price_list ? `<span class="small">Listino: <b class="text-primary">${esc(this.tariff.price_list.name)}</b></span>` : `<span class="small text-danger fw-bold"><i class="bi bi-exclamation-triangle"></i> Mandante senza listino: solo servizi a consuntivo</span>`;
+            if(this.merchantId && this.tariff) head += this.tariff.price_list ? `<span class="small">Listino: <b class="text-primary">${esc(this.tariff.price_list.name)}</b></span>` : `<span class="small text-danger fw-bold"><i class="bi bi-exclamation-triangle"></i> Mandante senza listino: nessun servizio imputabile</span>`;
             head += `</div>`;
             if(!this.merchantId) { el.innerHTML = `<div class="card card-custom p-3 border-start border-4 border-warning">${head}<p class="text-muted small m-0">Seleziona un mandante per imputare i costi dell'operazione.</p></div>`; return; }
             const body = this.rows.map((r, idx) => {
@@ -1522,6 +1591,15 @@
     const pickingCosts = new CostSheet("pickingCostSheet", "OUTBOUND", "Costi della spedizione");
     const inboundCosts = new CostSheet("inboundCostSheet", "INBOUND", "Costi del carico");
     const docCosts = new CostSheet("docCostSheet", null, "Costi imputati");
+
+    // Avviso modifiche non salvate del listino: digitazione nel modulo, cambio scheda, chiusura pagina.
+    ["input", "change"].forEach(ev => document.getElementById("priceListForm").addEventListener(ev, e => { if(!e.target.classList.contains("pl-add")) setPriceListDirty(true); }));
+    document.querySelectorAll('[data-bs-target="#tab-billing"], [data-bs-target="#subtab-pricelists"]').forEach(btn =>
+        btn.addEventListener("hide.bs.tab", e => { if(!confirmDiscardPriceList()) e.preventDefault(); }));
+    window.addEventListener("beforeunload", e => { if(priceListDirty) { e.preventDefault(); e.returnValue = ""; } });
+
+    // Dopo modifiche a listini, servizi o mandanti le schede costi aperte rileggono il tariffario.
+    function refreshCostTariffs() { Object.values(costSheets).forEach(s => s.refreshTariff()); }
 
     // Chiede conferma quando la scheda è vuota; restituisce false se l'operatore annulla o la scheda non è valida.
     function checkCostSheetBeforeConfirm(sheet) {
@@ -1835,6 +1913,7 @@
 
     // --- FASE 2, 3, 4 (INBOUND, HISTORY, INVENTORY) ---
     function onTabSwitch(t) {
+        if(t==='picking'){ pickingCosts.refreshTariff(); }
         if(t==='inbound'){ document.getElementById("inboundMerchant").value = ""; inboundCosts.setMerchant(null); if(document.getElementById("inboundRowsBody").children.length===0) addInboundRow(); loadInboundHistory(); }
         else if(t==='history'){ loadHistory(true); } else if(t==='inventory'){ loadInventoryOperator(); }
     }

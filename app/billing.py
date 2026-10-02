@@ -56,8 +56,8 @@ CENT = Decimal("0.01")
 
 
 async def merchant_tariff(db: AsyncSession, merchant) -> dict:
-    """Servizi imputabili al mandante: quelli attivi con prezzo nel suo listino, più i
-    servizi a consuntivo (importo deciso sull'addebito, validi anche senza listino)."""
+    """Servizi imputabili al mandante: le voci attive del suo listino. I servizi a consuntivo
+    non hanno prezzo (importo deciso sull'addebito); senza listino non c'è nulla di imputabile."""
     prices = {}
     if merchant.price_list_id:
         rows = await db.execute(
@@ -73,9 +73,11 @@ async def merchant_tariff(db: AsyncSession, merchant) -> dict:
     )).all()
     result = []
     for svc, phase in services:
-        priceless = svc.basis in PRICELESS_BASES
-        if not priceless and svc.id not in prices:
+        if svc.id not in prices:
             continue
+        priceless = svc.basis in PRICELESS_BASES
+        if not priceless and prices[svc.id] is None:
+            continue  # voce rimasta senza prezzo (servizio passato da consuntivo a prezzo fisso)
         result.append({
             "service": svc, "phase": phase, "priceless": priceless,
             "unit_price": None if priceless else prices[svc.id],

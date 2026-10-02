@@ -176,7 +176,8 @@ class PriceListLine(Base):
     id = Column(Integer, primary_key=True)
     price_list_id = Column(Integer, ForeignKey("price_lists.id", ondelete="CASCADE"), nullable=False)
     service_id = Column(Integer, ForeignKey("billing_services.id"), nullable=False)
-    unit_price = Column(Numeric(12, 4), nullable=False)
+    # NULL per i servizi a consuntivo (importo deciso sul singolo addebito).
+    unit_price = Column(Numeric(12, 4), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("price_list_id", "service_id", name="uq_price_list_lines_list_service"),
